@@ -29,8 +29,8 @@
 
 - block:
   - block:
-    - pause:
-        prompt: "暂停, 手动确认继续执行, 测试用。。。"
+    # - pause:
+    #     prompt: "暂停, 手动确认继续执行, 测试用。。。"
 
     - debug: msg="worker 节点加入集群, 可能需要一定时间。。"
     - name: worker 节点加入集群

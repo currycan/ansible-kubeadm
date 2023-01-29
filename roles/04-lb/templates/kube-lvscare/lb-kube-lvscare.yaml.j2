@@ -13,7 +13,7 @@ spec:
     - /healthz
     - --health-schem
     - https
-{% for host in groups['kube_masters'] %}
+{% for host in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
     - --rs
     - {{ hostvars[host]['ansible_' + iface].ipv4.address }}:6443
 {% endfor %}

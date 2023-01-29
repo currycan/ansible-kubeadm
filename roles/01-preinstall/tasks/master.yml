@@ -8,7 +8,7 @@
       mode: 0755
 
   - name: 安装 helm
-    when: inventory_hostname in groups['kube_masters']
+    when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
     copy:
       src: "{{ item.src }}"
       dest: "{{ item.dest }}"

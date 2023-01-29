@@ -20,7 +20,7 @@ nodeRegistration:
     pod-infra-container-image: "{{ images.infra.name }}"
   criSocket: "{{ cri_socket }}"
   name: "{{ inventory_hostname }}"
-{% if inventory_hostname in groups['kube_masters'] and inventory_hostname not in groups['kube_nodes'] %}
+{% if inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'])) and inventory_hostname not in groups['kube_nodes'] %}
   taints:
   - effect: NoSchedule
     key: node-role.kubernetes.io/master
@@ -269,7 +269,7 @@ enforceNodeAllocatable:
 {% if kube_reserved_enabled is defined and kube_reserved_enabled %}
 # kubelet 资源驱逐策略
 kubeReserved:
-{% if inventory_hostname in groups['kube_masters'] %}
+{% if inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
   cpu: 200m
   memory: 512Mi
 {% else %}
@@ -283,7 +283,7 @@ kubeReservedCgroup: "/kube.slice"  # 指定 kube 资源预留的 cgroup
 {% if system_reserved_enabled is defined and system_reserved_enabled %}
 # 系统资源驱逐策略
 systemReserved:
-{% if inventory_hostname in groups['kube_masters'] %}
+{% if inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
   cpu: 400m
   memory: 1.2Gi
 {% else %}

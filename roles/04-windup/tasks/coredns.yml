@@ -32,6 +32,6 @@
     until: apply_coredns.rc == 0
     retries: 3
     delay: "{{ retry_stagger }}"
-    run_once: "{{ enable_run_once | default(true) }}"
+    run_once: true
     delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
   when: skip_coredns | bool

@@ -1,16 +1,15 @@
-- block:
-  - name: 获取 kubeconfig admin 文件
-    when: inventory_hostname in groups['kube_masters']
-    slurp:
-      src: "{{ item }}"
-    with_items:
-      - "{{ kubernetes_etc_dir }}/admin.conf"
-    register: slurp_kubeconfig
-    run_once: "{{ enable_run_once | default(true) }}"
-    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+- name: 获取 kubeconfig admin 文件
+  slurp:
+    src: "{{ item }}"
+  with_items:
+    - "{{ kubernetes_etc_dir }}/admin.conf"
+  register: slurp_kubeconfig
+  run_once: true
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
+- block:
   - name: 配置 kubeconfig admin 文件到 $HOME/.kube/config
-    when: inventory_hostname in groups['kube_masters']
+    when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
     copy:
       dest: "{{ ansible_env.HOME }}/.kube/config"
       content: "{{ item.content | b64decode }}"
@@ -29,7 +28,7 @@
         KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
     args:
       executable: /bin/bash
-    run_once: "{{ enable_run_once | default(true) }}"
+    run_once: true
     delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
   - block:
@@ -52,7 +51,7 @@
     - include_tasks: coredns.yml
 
   - name: master 设置节点标签, 并设置污点（禁止调度）
-    when: inventory_hostname in groups['kube_masters']
+    when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
     shell: >
       {% if groups['kube_masters'] | length > 1 -%}
         kubectl taint node {{ inventory_hostname }} node-role.kubernetes.io/master=true:NoSchedule --overwrite;
@@ -79,14 +78,14 @@
 
   - block:
     - name: 创建 endpoint 配置清单目录
-      when: inventory_hostname in groups['kube_masters']
+      when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
       file:
         name: "{{ kubernetes_etc_dir }}/endpoint"
         state: directory
         mode: 0664
 
     - name: 配置核心组件的 endpoint 清单文件, 以便用于prometheus监控
-      when: inventory_hostname in groups['kube_masters']
+      when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
       template:
         src: "endpoint/{{ item }}.j2"
         dest: "{{ kubernetes_etc_dir }}/endpoint/{{ item }}"
@@ -101,10 +100,10 @@
       environment:
         KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
       register: apply_endpoint
-      # until: apply_endpoint.rc == 0
-      # retries: 3
-      # delay: "{{ retry_stagger }}"
-      run_once: "{{ enable_run_once | default(true) }}"
+      until: apply_endpoint.rc == 0
+      retries: 3
+      delay: "{{ retry_stagger }}"
+      run_once: true
       delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
   - name: 普通用户配置集群访问权限

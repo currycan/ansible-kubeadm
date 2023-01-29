@@ -62,7 +62,7 @@ metadata:
   name: kubernetes
 subsets:
 - addresses:
-{% for host in groups['kube_masters'] %}
+{% for host in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
   - ip: {{ hostvars[host]['ansible_' + iface].ipv4.address }}
 {% endfor %}
   ports:
@@ -79,7 +79,7 @@ metadata:
   namespace: kube-system
 subsets:
 - addresses:
-{% for host in groups['kube_masters'] %}
+{% for host in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
   - ip: {{ hostvars[host]['ansible_' + iface].ipv4.address }}
 {% endfor %}
   ports:
@@ -96,7 +96,7 @@ metadata:
   namespace: kube-system
 subsets:
 - addresses:
-{% for host in groups['kube_masters']%}
+{% for host in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
   - ip: {{ hostvars[host]['ansible_' + iface].ipv4.address }}
 {% endfor %}
   ports:
@@ -113,7 +113,7 @@ metadata:
   namespace: kube-system
 subsets:
 - addresses:
-{% for host in groups['kube_masters']%}
+{% for host in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
   - ip: {{ hostvars[host]['ansible_' + iface].ipv4.address }}
 {% endfor %}
   ports:
