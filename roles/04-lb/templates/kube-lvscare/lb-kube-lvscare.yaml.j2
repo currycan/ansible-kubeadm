@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kube-lvscare
+  namespace: kube-system
+spec:
+  containers:
+  - args:
+    - care
+    - --vs
+    - {{ lb_apiserver_ip }}:6443
+    - --health-path
+    - /healthz
+    - --health-schem
+    - https
+{% for host in groups['kube_masters'] %}
+    - --rs
+    - {{ hostvars[host]['ansible_' + iface].ipv4.address }}:6443
+{% endfor %}
+    - --interval
+    - '5'
+    - --mode
+    - link
+    command:
+    - /usr/bin/lvscare
+    env:
+    - name: LVSCARE_NODE_IP
+      value: {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}
+    image: "{{ images.lvscare.name }}"
+    imagePullPolicy: IfNotPresent
+    name: lb-kube-lvscare
+    resources: {}
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - mountPath: /lib/modules
+      name: lib-modules
+      readOnly: true
+  hostNetwork: true
+  volumes:
+  - hostPath:
+      path: /lib/modules
+      type: ""
+    name: lib-modules
+status: {}

@@ -1,0 +1,16 @@
+[Service]
+ExecStart=
+ExecStart=/usr/bin/kubelet \
+{% if container_runtime == 'containerd' %}
+{% if (kube_version is version('1.27.0', '<')) %}
+  --container-runtime=remote \
+{% endif %}
+  --container-runtime-endpoint={% if (kube_version is version('1.28.0', '<')) %}unix://{{ cri_socket }}{% else %}criSocket://{{ cri_socket }}{% endif %} \
+{% else %}
+  --pod-infra-container-image={{ images.infra.name }} \
+{% endif %}
+  --root-dir={{ kubelet_data_dir }} \
+  --pod-manifest-path={{ manifest_dir }} \
+  --cgroup-driver={{ cgroup_driver }} \
+  --hostname-override={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}
+Restart=always

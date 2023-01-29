@@ -1,0 +1,19 @@
+images:
+  infra:
+    name: "{{ kube_image_repository }}/pause:{{ pause_version }}"
+    type: all
+    enable: "true"
+
+  kube_vip:
+    name: "ghcr.io/kube-vip/kube-vip:v{{ kube_vip_version }}"
+    type: master
+    enable: "{%- if (groups['kube_masters'] | length > 1) and lb_mode == 'kube-vip' -%}true{% else %}false{%- endif -%}"
+  lvscare:
+    name: "ghcr.io/labring/lvscare:v4.1.3"
+    type: master
+    enable: "{%- if (groups['kube_masters'] | length > 1) and lb_mode == 'kube-lvscare' -%}true{% else %}false{%- endif -%}"
+
+  coredns:
+    name: "docker.io/coredns/coredns:{{ coredns_version }}"
+    type: node
+    enable: "true"

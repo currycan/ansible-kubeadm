@@ -1,0 +1,199 @@
+- name: 所有节点停止运行相关组件
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  with_items:
+    - kubelet.service
+    - containerd.service
+    - docker.service
+    - docker.socket
+  failed_when: false
+
+- name: kubeadm reset 集群
+  command: kubeadm reset --force
+  changed_when: true
+  failed_when: false
+  register: reset_cluster
+  until: reset_cluster.rc == 0
+  retries: 3
+  delay: "{{ retry_stagger }}"
+
+- name: 删除所有 kubernetes 和 container-runtime 各组件运行数据文件和配置
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ kubernetes_etc_dir }}"
+    - "{{ cni_etc_dir }}"
+    - "{{ kubernetes_log_dir }}"
+    - "{{ systemd_service_dir }}/kubelet.service.d/"
+    - "/etc/systemd/system/kubelet.service"
+    - "/etc/systemd/system/kube-apiserver.service"
+    - "/etc/systemd/system/kube-controller-manager.service"
+    - "/etc/systemd/system/kube-scheduler.service"
+    - "/etc/systemd/system/kubelet.service.d/"
+    - "/etc/systemd/system/kubelet.service"
+    - "{{ docker_etc_dir }}"
+    - "{{ containerd_etc_dir }}"
+    - "{{ systemd_service_dir }}/docker.service"
+    - "{{ systemd_service_dir }}/docker.socket"
+    - "{{ systemd_service_dir }}/containerd.service"
+    - "/etc/systemd/system/docker.service"
+    - "/etc/systemd/system/docker.socket"
+    - "/etc/systemd/system/containerd.service"
+    - "/etc/sysconfig/ipvsadm"
+
+- name: 删除 IP-in-IP tunnel
+  changed_when: true
+  command: "modprobe -r ipip"
+
+- name: 查找 blackhole 路由规则
+  changed_when: true
+  shell: >
+    set -o pipefail && ip route | awk '/blackhole/ {print $2}'
+  args:
+    executable: /bin/bash
+  register: find_blackhole
+
+- name: 删除 blackhole 路由规则
+  when: find_blackhole.stdout | length > 0
+  command: "ip route del {{ find_blackhole.stdout }}"
+
+- name: 清理 iptables
+  changed_when: true
+  shell: "{{ item }} || true"
+  with_items:
+  - iptables -F
+  - iptables -X
+  - iptables -F -t nat
+  - iptables -X -t nat
+  - iptables -F -t filter
+  - iptables -X -t filter
+  - iptables -F -t mangle
+  - iptables -X -t mangle
+
+- name: 刷新 iptables
+  iptables:
+    table: "{{ item }}"
+    flush: yes
+  with_items:
+    - filter
+    - nat
+    - mangle
+
+- name: 清理 ipvsadm
+  changed_when: true
+  shell: "{{ item }} || true"
+  with_items:
+  - ipvsadm --clear
+
+- name: 清除虚拟网卡
+  changed_when: true
+  shell: "{{ item }} || true"
+  with_items:
+  - ip link del docker0
+  - ip link del tunl0
+  - ip link del flannel.1
+  - ip link del cni0
+  - ip link del mynet0
+  - ip link del kube-bridge
+  - ip link del dummy0
+  - ip link del kube-ipvs0
+  - ip link del cilium_net
+  - ip link del cilium_vxlan
+  - ip link del ovn0
+  - ip link del ovs-system
+  - ip link del lvscare
+
+- name: 重新加载 daemon
+  systemd:
+    daemon_reload: yes
+
+- name: 重启网络
+  systemd:
+    name: >-
+      {% if ansible_os_family == "RedHat" -%}
+      {%- if ansible_distribution_major_version|int == 8 -%}
+      NetworkManager
+      {%- else -%}
+      network
+      {%- endif -%}
+      {%- elif ansible_distribution == "Ubuntu" and ansible_distribution_release == "bionic" -%}
+      systemd-networkd
+      {%- elif ansible_os_family == "Debian" -%}
+      networking
+      {%- endif %}
+    state: restarted
+
+- name: 清理 'calico' 路由
+  changed_when: true
+  shell: >
+    set -o pipefail && for rt in `ip route|grep bird|sed 's/blackhole//'|awk '{print $1}'`;do ip route del $rt;done;
+
+- name: 清理 'ENV PATH'
+  lineinfile:
+    dest: "{{ ansible_env.HOME }}/.bashrc"
+    state: absent
+    regexp: '{{ item }}'
+  with_items:
+  - 'crictl completion'
+  - 'kubectl completion'
+  - 'kubeadm completion'
+
+- name: 删除 hosts 文件中手动写入的 kube-apiserver 域名
+  lineinfile :
+    path: /etc/hosts
+    state: absent
+    regexp: "{{ item }}"
+  with_items:
+  - "{{ lb_apiserver_ip }}"
+  - "kube-apiserver"
+  - "^\n"
+
+- name: umount docker 相关文件或目录
+  mount:
+    path: "{{ item }}"
+    state: unmounted
+  with_items:
+  - /var/run/docker
+  - /var/lib/docker/overlay
+  - /var/run/docker/netns/default
+  - "{{ kubelet_data_dir }}"
+  - "{{ kubelet_data_dir }}/pods"
+
+- name: 删除运行时数据目录
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "/var/run/kubernetes"
+    - "/var/run/docker"
+    - "/run/flannel"
+    - "/var/lib/cni"
+    - "/run/containerd"
+    - "{{ containerd_data_dir }}"
+    - "/var/lib/dockershim"
+    - "{{ docker_data_dir }}"
+    - "{{ kubelet_data_dir }}"
+  register: delete_set_taint
+  until: delete_set_taint is succeeded
+  retries: 3
+  delay: "{{ retry_stagger }}"
+  ignore_errors: true
+
+- name: 解挂 /var/lib/kubelet/pod 残留占用, 并删除
+  changed_when: true
+  shell: >
+    set -o pipefail && \
+    umount $(df -HT | grep '{{ kubelet_data_dir }}/pods' | awk '{print $7}');
+    rm -rf {{ kubelet_data_dir }}
+
+- name: 确认删除 /var/lib/kubelet
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items: "{{ kubelet_data_dir }}"
+
+- name: 非 root 用户环境变量清理
+  include_tasks: reset-normal-user-admission.yml

@@ -1,0 +1,17 @@
+# cgroup driver
+cgroup_driver: systemd
+
+cri_socket: >-
+  {%- if container_runtime == 'containerd' -%}
+  /run/containerd/containerd.sock
+  {%- else -%}
+  /var/run/dockershim.sock
+  {%- endif -%}
+
+# 定义国内加速镜像地址
+proxy_registries:
+  - "https://8trm4p9x.mirror.aliyuncs.com"
+  - "https://docker.mirrors.ustc.edu.cn"
+
+# insecure_registry_cidr:
+#   - "{{ lb_apiserver_ip.split('.')[:-1] | join('.') }}.0/24"

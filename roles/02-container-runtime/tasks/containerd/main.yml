@@ -1,0 +1,45 @@
+- name: 创建 containerd 配置文件目录
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0644
+  with_items:
+    - "{{ containerd_etc_dir }}"
+    - "{{ cni_etc_dir }}"
+
+- name: 配置 containerd
+  when: item.enable | bool
+  template:
+    src: "containerd/{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  with_items:
+    - { src: "containerd.service", dest: "{{ systemd_service_dir }}/containerd.service", enable: true }
+    - { src: "crictl.yaml", dest: "/etc/crictl.yaml", enable: true }
+    - { src: "config.toml", dest: "{{ containerd_etc_dir }}/config.toml", enable: "{%- if container_runtime=='containerd' -%}true{% else %}false{%- endif -%}" }
+
+- name: 启动 containerd, 并设置开机启动
+  systemd:
+    name: containerd
+    daemon_reload: yes
+    state: restarted
+    enabled: yes
+  register: started_containerd
+  until: started_containerd.status.ActiveState == "active"
+  retries: 3
+  delay: "{{ retry_stagger }}"
+
+# - name: 获取其他 cni 配置文件
+#   find:
+#     paths: "{{ cni_etc_dir }}"
+#     patterns: "*.conflist,*.conf"
+#     # use_regex: true
+#   register: find_files_to_delete
+
+# - name: 删除其他 cni 配置文件
+#   file:
+#     path: "{{ item.path }}"
+#     state: absent
+#   with_items: "{{ find_files_to_delete.files }}"

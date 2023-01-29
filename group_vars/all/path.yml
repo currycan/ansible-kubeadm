@@ -1,0 +1,31 @@
+# containerd
+cni_bin_dir: /opt/cni/bin
+cni_etc_dir: /etc/cni/net.d
+
+# system paths
+profile_dir: /etc/profile.d
+systemd_service_dir: /usr/lib/systemd/system
+
+# container-runtime paths
+docker_etc_dir: /etc/docker
+docker_data_dir: /var/lib/docker
+containerd_etc_dir: /etc/containerd
+containerd_data_dir: /var/lib/containerd
+
+# etcd paths
+# 配置etcd持久化数据目录
+# 0 3 * * * etcd_cron.sh -c 4 -d /data_bak/etcd &>/dev/null 2>&1
+etcd_data_bak_dir: /data_bak/etcd
+
+# kubernetes paths
+kubernetes_etc_dir: /etc/kubernetes
+kubernetes_log_dir: /var/log/kubernetes
+kubelet_data_dir: /var/lib/kubelet
+manifest_dir: "{{ kubernetes_etc_dir }}/manifests"
+rbac_dir: "{{kubernetes_etc_dir}}/rbac"
+addons_dir: "{{kubernetes_etc_dir}}/addons"
+
+# cert paths
+k8s_pki_dir: "{{ kubernetes_etc_dir }}/pki"
+etcd_pki_dir: "{{ k8s_pki_dir }}/etcd"
+kubelet_pki_dir: "{{ kubelet_data_dir }}/pki"

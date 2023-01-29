@@ -1,0 +1,10 @@
+[Service]
+## 添加 CPUAccounting=true 选项, 开启 systemd CPU 统计功能
+CPUAccounting=true
+## 添加 MemoryAccounting=true 选项, 开启 systemd Memory 统计功能
+MemoryAccounting=true
+## 添加 BlockIOAccounting=true 选项, 开启Block IO 统计功能
+BlockIOAccounting=true
+
+ExecStartPre=/bin/bash -c '/bin/mkdir -p /sys/fs/cgroup/{cpuset,memory,hugetlb,systemd,pids,"cpu,cpuacct"}/{system,kube,kubepods}.slice||:'
+Slice=kube.slice

@@ -1,0 +1,6 @@
+runtime-endpoint: {% if (kube_version is version('1.28.0', '<')) %}unix://{{ cri_socket }}{% else %}criSocket://{{ cri_socket }}{% endif %}
+
+image-endpoint: {% if (kube_version is version('1.28.0', '<')) %}unix://{{ cri_socket }}{% else %}criSocket://{{ cri_socket }}{% endif %}
+
+timeout: 30
+debug: false

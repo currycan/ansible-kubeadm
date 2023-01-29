@@ -1,0 +1,5 @@
+- block:
+  - debug: var=inventory_hostname
+  when:
+    - inventory_hostname not in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
+    - inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)

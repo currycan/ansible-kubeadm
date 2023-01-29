@@ -1,0 +1,90 @@
+- name: 创建 docker 用户组
+  group:
+    name: docker
+    state: present
+
+- name: 创建 docker 用户
+  user:
+    name: docker
+    comment: "Docker user"
+    shell: /sbin/nologin
+    state: present
+    system: yes
+    groups: docker
+
+- name: 创建 docker 配置文件目录
+  file:
+    path: "{{ docker_etc_dir }}"
+    state: directory
+    mode: 0644
+
+- name: 配置 limit-docker.slice
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: "limit-docker.slice", dest: "{{ systemd_service_dir }}", mode: "0644" }
+
+- name: 配置 Docker engine
+  template:
+    src: "docker/{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - { src: "docker.service", dest: "{{ systemd_service_dir }}/docker.service" }
+    - { src: "docker.socket", dest: "{{ systemd_service_dir }}/docker.socket" }
+    - { src: "daemon.json", dest: "{{ docker_etc_dir }}/daemon.json" }
+
+- name: docker 命令自动补全
+  changed_when: true
+  shell: >
+    source /etc/bash_completion.d/docker
+  args:
+    executable: /bin/bash
+
+- name: flush-iptables
+  changed_when: true
+  shell: >
+    iptables -P INPUT ACCEPT;
+    iptables -F && iptables -X;
+    iptables -F -t nat && iptables -X -t nat;
+    iptables -F -t raw && iptables -X -t raw;
+    iptables -F -t mangle && iptables -X -t mangle;
+    iptables -P FORWARD ACCEPT
+
+- name: 启动 Docker socket
+  systemd:
+    name: docker.socket
+    daemon_reload: yes
+    state: started
+    enabled: yes
+
+- name: 启动 Docker engine, 并设置开机启动
+  systemd:
+    name: docker
+    daemon_reload: yes
+    state: restarted
+    enabled: yes
+  register: started_docker
+  until: started_docker.status.ActiveState == "active"
+  retries: 3
+  delay: "{{ retry_stagger }}"
+
+# 非 root 用户添加 docker 执行权限
+- name: 判断执行用户是否存在
+  changed_when: true
+  failed_when: false
+  action: shell set -o pipefail && /usr/bin/getent passwd {{ item }} | grep {{ item }} | cut -d":" -f6
+  register: user_results
+  with_items:
+  - "{{ normal_user }}"
+
+- name: 添加非 root 用户 docker 命令权限
+  when: item.rc == 0
+  shell: >
+    usermod -aG docker {{ item.item }}
+  with_items:
+  - "{{ user_results['results'] }}"

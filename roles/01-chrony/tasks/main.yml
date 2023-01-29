@@ -1,0 +1,46 @@
+- name:  卸载 ntp
+  package:
+    name: ntp
+    state: absent
+
+- name: debug
+  debug:
+    msg: "安装 chrony, 可能需要一定时间。。"
+  run_once: true
+
+- name: 离线安装 chrony
+  command: >-
+    rpm -Uvh --nodeps --force *.rpm
+  args:
+    warn: false
+    chdir: "{{ cache_dir }}/chrony"
+  register: chrony_rpm_install
+  failed_when: chrony_rpm_install.rc != 0 and "is already installed" not in chrony_rpm_install.stderr
+  changed_when: chrony_rpm_install.rc == 0
+
+- block:
+  - name: 配置 chrony server
+    template:
+      src: server-centos.conf.j2
+      dest: /etc/chrony.conf
+      mode: 0644
+
+  - name: 启动 chrony server
+    service: name=chronyd state=restarted enabled=yes
+  when: 'inventory_hostname == groups.chrony[0]'
+
+- block:
+  - name: 配置 chrony client
+    template:
+      src: client-centos.conf.j2
+      dest: /etc/chrony.conf
+      mode: 0644
+    when: 'ansible_distribution in ["CentOS","RedHat","Amazon"]'
+
+  - name: 启动 chrony client
+    service:
+      name: chronyd
+      state: restarted
+      enabled: yes
+    when: 'ansible_distribution in ["CentOS","RedHat","Amazon"]'
+  when: 'inventory_hostname != groups.chrony[0]'

@@ -1,0 +1,122 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-system
+  name: kube-controller-manager
+  labels:
+    k8s-app: kube-controller-manager
+    app.kubernetes.io/name: kube-controller-manager
+spec:
+  selector:
+    component: kube-controller-manager
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: https-metrics
+    port: 10257
+    targetPort: 10257
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-system
+  name: kube-scheduler
+  labels:
+    k8s-app: kube-scheduler
+    app.kubernetes.io/name: kube-scheduler
+spec:
+  selector:
+    component: kube-scheduler
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: https-metrics
+    port: 10259
+    targetPort: 10259
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-system
+  name: kube-etcd
+  labels:
+    k8s-app: kube-etcd
+    app.kubernetes.io/name: kube-etcd
+spec:
+  selector:
+    component: kube-etcd
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: https-metrics
+    port: 2379
+    targetPort: 2379
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: kubernetes
+subsets:
+- addresses:
+{% for host in groups['kube_masters'] %}
+  - ip: {{ hostvars[host]['ansible_' + iface].ipv4.address }}
+{% endfor %}
+  ports:
+  - name: https
+    port: 6443
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  labels:
+    k8s-app: kube-controller-manager
+  name: kube-controller-manager
+  namespace: kube-system
+subsets:
+- addresses:
+{% for host in groups['kube_masters'] %}
+  - ip: {{ hostvars[host]['ansible_' + iface].ipv4.address }}
+{% endfor %}
+  ports:
+  - name: https-metrics
+    port: 10257
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  labels:
+    k8s-app: kube-scheduler
+  name: kube-scheduler
+  namespace: kube-system
+subsets:
+- addresses:
+{% for host in groups['kube_masters']%}
+  - ip: {{ hostvars[host]['ansible_' + iface].ipv4.address }}
+{% endfor %}
+  ports:
+  - name: https-metrics
+    port: 10259
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  labels:
+    k8s-app: kube-etcd
+  name: kube-etcd
+  namespace: kube-system
+subsets:
+- addresses:
+{% for host in groups['kube_masters']%}
+  - ip: {{ hostvars[host]['ansible_' + iface].ipv4.address }}
+{% endfor %}
+  ports:
+  - name: https-metrics
+    port: 2379
+    protocol: TCP

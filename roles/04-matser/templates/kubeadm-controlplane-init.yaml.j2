@@ -1,0 +1,421 @@
+---
+{% if (kube_version is version('1.22.0', '>=')) %}
+apiVersion: kubeadm.k8s.io/v1beta3
+{% elif (kube_version is version('1.15.0', '>=')) %}
+apiVersion: kubeadm.k8s.io/v1beta2
+{% else %}
+apiVersion: kubeadm.k8s.io/v1beta1
+{% endif %}
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}"
+  bindPort: 6443
+nodeRegistration:
+  kubeletExtraArgs:
+{% if (kube_version is version('1.24.0', '<')) %}
+    network-plugin: cni
+{% endif %}
+    root-dir: "{{ kubelet_data_dir }}"
+    hostname-override: "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}"
+    pod-infra-container-image: "{{ images.infra.name }}"
+  criSocket: "{{ cri_socket }}"
+  name: "{{ inventory_hostname }}"
+{% if inventory_hostname in groups['kube_masters'] and inventory_hostname not in groups['kube_nodes'] %}
+  taints:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+{% else %}
+  taints: []
+{% endif %}
+bootstrapTokens:
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  description: "kubeadm bootstrap token"
+  token: "{{ bootstrap_token | default('abcdef.0123456789abcdef') }}"
+  ttl: "24h0m0s"
+  usages:
+  - signing
+  - authentication
+---
+{% if (kube_version is version('1.22.0', '>=')) %}
+apiVersion: kubeadm.k8s.io/v1beta3
+{% elif (kube_version is version('1.15.0', '>=')) %}
+apiVersion: kubeadm.k8s.io/v1beta2
+{% else %}
+apiVersion: kubeadm.k8s.io/v1beta1
+{% endif %}
+kind: ClusterConfiguration
+kubernetesVersion: "v{{ kube_version }}"
+clusterName: "{{ cluster_name }}"
+controlPlaneEndpoint: "{{ kube_master_external_domain.split(',')[0] }}:{%- if groups['kube_masters'] | length == 1 or lb_mode == 'kube-vip' or lb_mode == 'kube-lvscare' -%}6443{%- else -%}8443{%- endif %}"
+certificatesDir: "{{ k8s_pki_dir }}"
+{% if (kube_version is version('1.15.0', '>=')) and (not skip_coredns | bool) %}
+dns:
+  type: CoreDNS
+{% if (kube_version is version('1.21.2', '>=')) %}
+  imageRepository: "docker.io/coredns"
+{% elif (containerd_version is version('1.21.0', '>=') and containerd_version is version('1.21.2', '<') ) %}
+  imageRepository: "docker.io"
+{% else %}
+  imageRepository: "docker.io/coredns"
+{% endif %}
+  imageTag: "{{ images.coredns.name.split(':')[1] }}"
+{% endif %}
+etcd:
+  local:
+    caFile: "{{ etcd_pki_dir }}/ca.crt"
+    certFile: "{{ etcd_pki_dir }}/apiserver-etcd-client.crt"
+    keyFile: "{{ etcd_pki_dir }}/apiserver-etcd-client.key"
+    serverCertSANs:
+    - localhost
+    - 127.0.0.1
+{# {% for host in ((groups['kube_etcds'] | difference(groups['delete_etcds']) | unique)) %}
+    - {{ hostvars[host]['ansible_' + iface].ipv4.address }}
+{% endfor %} #}
+    peerCertSANs:
+    - localhost
+{% for domain in etcd_domain_name.split(',') %}
+    - {{ domain | trim }}
+{% endfor %}
+{# {% for host in ((groups['kube_etcds'] | difference(groups['delete_etcds']) | unique)) %}
+    - {{ hostvars[host].ansible_hostname | lower }}
+{% endfor %} #}
+    - 127.0.0.1
+{# {% for host in ((groups['kube_etcds'] | difference(groups['delete_etcds']) | unique)) %}
+    - {{ hostvars[host]['ansible_' + iface].ipv4.address }}
+{% endfor %} #}
+imageRepository: "{{ kube_image_repository }}"
+networking:
+  dnsDomain: "{{ cluster_domain_name }}"
+  podSubnet: "{{ pod_network_cidr }}"
+  serviceSubnet: "{{ service_subnet }}"
+apiServer:
+  certSANs:
+  - localhost
+  - kubernetes
+  - kubernetes.default
+  - kubernetes.default.svc
+{% for sub_domain in cluster_domain_name.split('.') %}
+  {%- set outer_loop = loop %}
+  - kubernetes.default.svc.{% for domain in cluster_domain_name.split('.') %}{% if loop.index <= outer_loop.index %}{{ domain }}{% if loop.index < outer_loop.index %}.{% endif %}{% endif %}{% endfor %}
+
+{% endfor %}
+{# {% for host in (groups['kube_masters']| default([])) | unique %}
+  - {{ hostvars[host]['ansible_hostname'] | lower }}
+{% endfor %} #}
+{% for domain in kube_master_external_domain.split(',') %}
+  - {{ domain | trim }}
+{% endfor %}
+  - 127.0.0.1
+  - {{ api_service_ip }}
+{% if lb_apiserver_ip is defined %}
+  - {{ lb_apiserver_ip }}
+{% endif %}
+{# {% for host in (groups['kube_masters'] | default([])) | unique %}
+  - {{ hostvars[host]['ansible_' + iface].ipv4.address }}
+{% endfor %} #}
+{% for ip in kube_master_external_ip.split(',') %}
+  - {{ ip | trim }}
+{% endfor %}
+  extraArgs:
+{% if apiserver_enable_admission_plugins|length > 0 %}
+    enable-admission-plugins: "{{ apiserver_enable_admission_plugins | join(',') }}"
+{% endif %}
+{% if apiserver_disable_admission_plugins|length > 0 %}
+    disable-admission-plugins: "{{ apiserver_disable_admission_plugins | join(',') }}"
+{% endif %}
+    feature-gates: "{%- if feature_gates != None -%}{% for k,v in feature_gates.items() %}{{ k }}={{ v | lower }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}"
+{% if apiserver_extra_args|length > 0 %}
+{% for key in apiserver_extra_args %}
+    {{ key }}: "{{ apiserver_extra_args[key] }}"
+{% endfor %}
+{% endif %}
+  extraVolumes:
+    - hostPath: "/etc/localtime"
+      mountPath: "/etc/localtime"
+      pathType: File
+      readOnly: true
+      name: localtime
+    - hostPath: "{{ kubernetes_etc_dir }}/audit"
+      mountPath: "{{ kubernetes_etc_dir }}/audit"
+      pathType: DirectoryOrCreate
+      readOnly: true
+      name: audit-policy
+    - hostPath: "{{ kubernetes_log_dir }}/audit"
+      mountPath: "{{ kubernetes_log_dir }}/audit"
+      pathType: DirectoryOrCreate
+      name: audit-logs
+{% for volume in apiserver_extra_volumes %}
+    - name: {{ volume.name }}
+      hostPath: {{ volume.hostPath }}
+      mountPath: {{ volume.mountPath }}
+      readOnly: {{ volume.readOnly | d(not (volume.writable | d(false))) }}
+{% endfor %}
+controllerManager:
+  extraArgs:
+    bind-address: 127.0.0.1
+    feature-gates: "{%- if feature_gates != None -%}{% for k,v in feature_gates.items() %}{{ k }}={{ v | lower }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}"
+    profiling: "false"
+{% if controller_extra_args|length > 0 %}
+{% for key in controller_extra_args %}
+    {{ key }}: "{{ controller_extra_args[key] }}"
+{% endfor %}
+{% endif %}
+  extraVolumes:
+    - hostPath: "/etc/localtime"
+      mountPath: "/etc/localtime"
+      pathType: File
+      readOnly: true
+      name: localtime
+{% for volume in controller_manager_extra_volumes %}
+    - name: {{ volume.name }}
+      hostPath: {{ volume.hostPath }}
+      mountPath: {{ volume.mountPath }}
+      readOnly: {{ volume.readOnly | d(not (volume.writable | d(false))) }}
+{% endfor %}
+scheduler:
+  extraArgs:
+    bind-address: 127.0.0.1
+    feature-gates: "{%- if feature_gates != None -%}{% for k,v in feature_gates.items() %}{{ k }}={{ v | lower }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}"
+    profiling: "false"
+{% if scheduler_extra_args|length > 0 %}
+{% for key in scheduler_extra_args %}
+    {{ key }}: "{{ scheduler_extra_args[key] }}"
+{% endfor %}
+{% endif %}
+  extraVolumes:
+    - hostPath: "/etc/localtime"
+      mountPath: "/etc/localtime"
+      pathType: File
+      readOnly: true
+      name: localtime
+{% for volume in scheduler_extra_volumes %}
+    - name: {{ volume.name }}
+      hostPath: {{ volume.hostPath }}
+      mountPath: {{ volume.mountPath }}
+      readOnly: {{ volume.readOnly | d(not (volume.writable | d(false))) }}
+{% endfor %}
+---
+{# https://kubernetes.io/zh/docs/reference/config-api/kubelet-config.v1beta1/#kubelet-config-k8s-io-v1beta1-KubeletConfiguration #}
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+# 身份验证
+authentication:
+  anonymous:
+    enabled: false
+  webhook:
+    cacheTTL: 2m0s
+    enabled: true
+  x509:
+    clientCAFile: "{{ k8s_pki_dir }}/ca.crt"
+# 授权
+authorization:
+  mode: Webhook
+  webhook:
+    cacheAuthorizedTTL: 5m0s
+    cacheUnauthorizedTTL: 30s
+cgroupDriver: "{{ cgroup_driver }}"
+cgroupRoot: "/"
+cgroupsPerQOS: true
+clusterDNS:
+- "{{ cluster_dns_ip }}"
+clusterDomain: "{{ cluster_domain_name }}"
+configMapAndSecretChangeDetectionStrategy: Watch
+containerLogMaxFiles: 10
+containerLogMaxSize: 20Mi
+contentType: application/vnd.kubernetes.protobuf
+cpuCFSQuota: true
+cpuCFSQuotaPeriod: 100ms
+cpuManagerReconcilePeriod: 10s
+enableContentionProfiling: true
+enableControllerAttachDetach: true
+enableDebuggingHandlers: true
+enableSystemLogHandler: true
+# Node 资源驱逐策略
+evictionHard:
+  imagefs.available: "15%"
+  memory.available: "300Mi"
+  nodefs.available: "10%"
+  nodefs.inodesFree: "5%"
+evictionMaxPodGracePeriod: 30
+evictionPressureTransitionPeriod: 0s
+evictionSoft:
+  imagefs.available: "15%"
+  memory.available: "512Mi"
+  nodefs.available: "15%"
+  nodefs.inodesFree: "10%"
+evictionSoftGracePeriod:
+  imagefs.available: 3m
+  memory.available: 1m
+  nodefs.available: 3m
+  nodefs.inodesFree: 1m
+evictionMinimumReclaim: {}
+failSwapOn: true
+{% if (kube_reserved_enabled is defined and kube_reserved_enabled) or (system_reserved_enabled is defined and system_reserved_enabled) %}
+cpuManagerPolicy: static
+{% else%}
+cpuManagerPolicy: none
+{% endif %}
+# Node 资源预留
+enforceNodeAllocatable:
+- pods
+{% if kube_reserved_enabled is defined and kube_reserved_enabled %}
+- kube-reserved # 开启 kube 资源预留
+{% endif %}
+{% if system_reserved_enabled is defined and system_reserved_enabled %}
+- system-reserved # 开启 system 资源预留
+{% endif %}
+# kube Cgroups
+{% if kube_reserved_enabled is defined and kube_reserved_enabled %}
+# kubelet 资源驱逐策略
+kubeReserved:
+{% if inventory_hostname in groups['kube_masters'] %}
+  cpu: 200m
+  memory: 512Mi
+{% else %}
+  cpu: 100m
+  memory: 256Mi
+{% endif %}
+  ephemeral-storage: "1Gi"
+kubeReservedCgroup: "/kube.slice"  # 指定 kube 资源预留的 cgroup
+{% endif %}
+# system Cgroups
+{% if system_reserved_enabled is defined and system_reserved_enabled %}
+# 系统资源驱逐策略
+systemReserved:
+{% if inventory_hostname in groups['kube_masters'] %}
+  cpu: 400m
+  memory: 1.2Gi
+{% else %}
+  cpu: 200m
+  memory: 1Gi
+{% endif %}
+  ephemeral-storage: "1Gi"
+systemReservedCgroup: "/system.slice"  # 指定 system 资源预留的
+{% endif %}
+eventBurst: 10
+eventRecordQPS: 5
+{% if feature_gates is defined and feature_gates | length > 0 -%}
+featureGates:
+{% for k,v in feature_gates.items() %}
+  {{ k }}: {{ v | lower }}
+{% endfor -%}
+{% endif -%}
+fileCheckFrequency: 20s
+hairpinMode: hairpin-veth
+healthzBindAddress: 127.0.0.1
+# kubelet健康检查端口
+httpCheckFrequency: 20s
+# 镜像删除策略
+imageGCHighThresholdPercent: 85
+imageGCLowThresholdPercent: 80
+imageMinimumGCAge: 2m0s
+iptablesDropBit: 15
+iptablesMasqueradeBit: 14
+kubeAPIBurst: 100
+kubeAPIQPS: 100
+makeIPTablesUtilChains: true
+maxOpenFiles: 1000000
+maxPods: {{ kubelet_max_pods }}
+nodeLeaseDurationSeconds: 40
+nodeStatusMaxImages: 50
+{% if (kube_version is version('1.15.0', '>=')) %}
+nodeStatusReportFrequency: 1m0s
+{% endif %}
+nodeStatusUpdateFrequency: 10s
+oomScoreAdj: -999
+podPidsLimit: -1
+# 监听地址
+address: 0.0.0.0
+registryBurst: 20
+registryPullQPS: 5
+{% if ansible_distribution_release == "bionic" %}
+resolvConf: /run/systemd/resolve/resolv.conf
+{% else %}
+resolvConf: /etc/resolv.conf
+{% endif %}
+rotateCertificates: true
+# 只能设置为 false, 否则启动报错: panic: runtime error: invalid memory address or nil pointer dereference
+runOnce: false
+runtimeRequestTimeout: 15m0s
+serializeImagePulls: false
+serverTLSBootstrap: true
+{% if (kube_version is version('1.21.0', '>=')) %}
+shutdownGracePeriod: 30s
+shutdownGracePeriodCriticalPods: 10s
+{% endif %}
+staticPodPath: "{{ manifest_dir }}"
+streamingConnectionIdleTimeout: 4h0m0s
+syncFrequency: 1m0s
+tlsCipherSuites:
+- TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+- TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+- TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+- TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+- TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+- TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+- TLS_RSA_WITH_AES_256_GCM_SHA384
+- TLS_RSA_WITH_AES_128_GCM_SHA256
+volumePluginDir: /usr/libexec/kubernetes/kubelet-plugins/volume/exec/
+volumeStatsAggPeriod: 1m0s
+AllowedUnsafeSysctls:
+- "net.core.somaxconn"
+- "kernel.msg*"
+kernelMemcgNotification: false
+protectKernelDefaults: false
+topologyManagerPolicy: "none"
+topologyManagerScope: "container"
+---
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+bindAddress: 0.0.0.0
+healthzBindAddress: "127.0.0.1:10256"
+metricsBindAddress: "127.0.0.1:10249"
+clientConnection:
+  acceptContentTypes: ""
+  burst: 100
+  contentType: application/vnd.kubernetes.protobuf
+  qps: 100
+clusterCIDR: "{{ pod_network_cidr }}"
+configSyncPeriod: 10m0s
+conntrack:
+  maxPerCore: 32768
+  min: 131072
+  tcpCloseWaitTimeout: 1h0m0s
+  tcpEstablishedTimeout: 24h0m0s
+detectLocalMode: ""
+enableProfiling: false
+hostnameOverride: "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}"
+{% if feature_gates is defined and feature_gates | length > 0 -%}
+featureGates:
+{% for k,v in feature_gates.items() %}
+  {{ k }}: {{ v | lower }}
+{% endfor -%}
+{% endif -%}
+mode: "{{ kube_proxy.proxy_mode }}"
+iptables:
+  masqueradeAll: false
+  masqueradeBit: 14
+  minSyncPeriod: 0s
+  syncPeriod: 30s
+ipvs:
+  excludeCIDRs: []
+  minSyncPeriod: 0s
+  scheduler: "{{ kube_proxy.scheduler }}"
+{% if (kube_version is version('1.15.0', '>=')) %}
+  # metalLB
+  strictARP: true
+{% endif %}
+  syncPeriod: 30s
+  tcpFinTimeout: 5s
+  tcpTimeout: 5s
+  udpTimeout: 5s
+nodePortAddresses: []
+oomScoreAdj: -999
+portRange: ""
+{% if (kube_version is version('1.15.0', '>=')) %}
+winkernel:
+  enableDSR: false
+  networkName: ""
+  sourceVip: ""
+{% endif %}

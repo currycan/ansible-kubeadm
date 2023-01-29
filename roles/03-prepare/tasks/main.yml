@@ -1,0 +1,8 @@
+- name: 初始化化 kubernetes 集群所有节点
+  include_tasks:  init_all.yml
+
+- name: 初始化化 kubernetes 集群 master 节点
+  include_tasks:  init_master.yml
+
+- name: 初始化化 kubernetes 集群 worker 节点
+  include_tasks:  init_worker.yml

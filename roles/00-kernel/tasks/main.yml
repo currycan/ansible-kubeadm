@@ -1,0 +1,65 @@
+- name: 执行命令获取内核版本
+  changed_when: true
+  command: uname -r
+  register: get_kernel_version
+
+- name: 获取系统当前使用内核版本
+  set_fact:
+    fact_kernel_version: "{{ get_kernel_version.stdout.split('.el7')[0] }}"
+
+- name: 获取内核参数
+  debug:
+    var: get_kernel_version.stdout
+
+- block:
+  - name: debug
+    debug:
+      msg: "更新 kernel, 可能需要一定时间。。"
+    run_once: true
+
+  - name: 离线安装 kernel
+    # yum install -y *.rpm
+    command: >-
+      rpm -Uvh --nodeps --force *.rpm
+    args:
+      warn: false
+      chdir: "{{ cache_dir }}/kernel"
+    register: kernel_rpm_install
+    failed_when: kernel_rpm_install.rc != 0 and "is already installed" not in kernel_rpm_install.stderr
+    changed_when: kernel_rpm_install.rc == 0
+  when: 'fact_kernel_version not in kernel_offlie_version'
+
+- name: 设置默认内核为最新安装版本
+  changed_when: true
+  shell: >-
+    set -o pipefail;
+    grub2-set-default 0 && grub2-mkconfig -o /boot/grub2/grub.cfg
+
+- name: 获取默认内核版本
+  changed_when: true
+  command: "grubby --default-kernel"
+
+- name: 开启 User namespaces
+  changed_when: true
+  shell: >-
+    grubby --args="user_namespace.enable=1" --update-kernel="$(grubby --default-kernel)"
+
+- name: 卸载 3.10 版本 kernel
+  yum:
+    name: 'kernel*3.10*"'
+    state: absent
+    disablerepo: "*"
+
+- block:
+  - name: 需手动重启服务器
+    debug:
+      msg: >-
+        节点：{{ inventory_hostname }},
+        内核已升级完成,
+        请手动执行 reboot -f 重启该服务器。
+
+  - name: 校验节点操作系统
+    assert:
+      that: fact_kernel_version in kernel_offlie_version
+      msg: "节点：{{ inventory_hostname }} 内核版本为 {{ fact_kernel_version }}, 与设定版本 {{ kernel_offlie_version }} 不同, 需重启加载！！"
+  when: 'fact_kernel_version not in kernel_offlie_version'

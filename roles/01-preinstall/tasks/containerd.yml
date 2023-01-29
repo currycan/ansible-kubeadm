@@ -1,0 +1,38 @@
+- block:
+  - name: 二进制安装 containerd、cni 和 crictl
+    copy:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+      mode: 0755
+    with_items:
+      - { src: "{{ cache_dir }}/binary/containerd/opt/", dest: "/opt/"}
+      - { src: "{{ cache_dir }}/binary/containerd/usr/local/bin/", dest: "/usr/bin/"}
+      - { src: "{{ cache_dir }}/binary/containerd/usr/local/sbin/", dest: "/usr/bin/"}
+      - { src: "{{ cache_dir }}/binary/crictl/", dest: "/usr/bin/"}
+
+  - name: 升级 libseccomp, 2.3 版本不支持当前 containerd
+    command: >-
+      rpm -Uvh --nodeps --force libseccomp-2.5.2-1.el8.x86_64.rpm
+    args:
+      warn: false
+      chdir: "{{ cache_dir }}/containerd"
+    register: libseccomp_rpm_install
+    failed_when: libseccomp_rpm_install.rc != 0 and "is already installed" not in libseccomp_rpm_install.stderr
+    changed_when: libseccomp_rpm_install.rc == 0
+
+  - name: crictl 命令自动补全
+    changed_when: true
+    shell: >
+      crictl completion bash > /etc/bash_completion.d/crictl;
+      source /etc/bash_completion.d/crictl
+
+  - name: 重启 containerd
+    shell: >
+      if [ -f {{ systemd_service_dir }}/containerd.service ];then
+        systemctl restart containerd;
+      else
+        exit 0;
+      fi
+  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)

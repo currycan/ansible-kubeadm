@@ -1,0 +1,15 @@
+# 4.19版内核之后将nf_conntrack_ipv4更名为nf_conntrack, kube-proxy 1.12版本不支持在4.19以上版本内核下开启ipvs,建议安装4.18版或者lts版内核
+# 详情可以查看：https://github.com/kubernetes/kubernetes/issues/70304
+
+## centos 7
+centos7:
+  kernel_repo_name: longterm-kernel
+  kernel_repo_url: "https://copr-be.cloud.fedoraproject.org/results/kwizart/kernel-longterm-4.19/epel-7-x86_64/"
+  kernel_package:
+    - kernel-longterm
+    - kernel-longterm-core
+    - kernel-longterm-cross-headers
+    - kernel-longterm-devel
+    # - kernel-longterm-headers
+    - kernel-longterm-modules
+    - kernel-longterm-modules-extra

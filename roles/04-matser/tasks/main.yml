@@ -1,0 +1,13 @@
+- block:
+  # 初始化第一个 master 节点
+  - include_tasks: init.yml
+
+  # 加入其他 master 节点
+  - include_tasks: join.yml
+
+  - name: 更新证书 10 年有效期
+    shell: >
+      /usr/local/bin/update-kubeadm-cert.sh all
+    environment:
+      ENABLE_INIT: true
+  when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"

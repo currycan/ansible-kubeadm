@@ -1,0 +1,151 @@
+# kubernetes各组件镜像仓库前缀, 离线镜像包里的镜像是：registry.cn-hangzhou.aliyuncs.com/google_containers(k8s.gcr.io init时会报错)
+# kube_image_repository: k8s.gcr.io
+kube_image_repository: registry.cn-hangzhou.aliyuncs.com/google_containers
+# kube_image_repository: registry.aliyuncs.com/k8sxio
+# k8s 集群 master 节点证书配置, 可以添加多个ip和域名（比如增加公网ip和域名）
+
+# kubelet 参数
+kubelet_max_pods: 128
+# 默认关闭, 不预留资源, 最大限度使用资源
+kube_reserved_enabled: false
+system_reserved_enabled: false
+
+feature_gates:
+  # kubectl debug 1.16.0 新增特性 , 默认关闭
+  EphemeralContainers: true
+  # TTLAfterFinished: true
+  RotateKubeletServerCertificate: true
+  # # 1.20 中新增特性, 默认关闭, 1.21 版本中是默认启用
+  # GracefulNodeShutdown: true
+
+# kube-apiserver variables
+# https://github.com/kelseyhightower/kubernetes-the-hard-way/issues/626
+# 配置聚合层： https://kubernetes.io/zh/docs/tasks/extend-kubernetes/configure-aggregation-layer/
+apiserver_enable_admission_plugins:
+  # - SecurityContextDeny
+  # https://kubernetes.io/zh/docs/reference/access-authn-authz/admission-controllers/
+  # - AlwaysPullImages
+  - NamespaceExists
+  - NamespaceLifecycle
+  - LimitRanger
+  - ServiceAccount
+  - Priority
+  - DefaultTolerationSeconds
+  - DefaultStorageClass
+  - PersistentVolumeClaimResize
+  - MutatingAdmissionWebhook
+  - ValidatingAdmissionWebhook
+  - ResourceQuota
+  - NodeRestriction
+  - PersistentVolumeLabel
+apiserver_disable_admission_plugins: []
+
+## Extra args for k8s components passing by kubeadm
+apiserver_extra_args:
+  allow-privileged: "true"
+  # alsologtostderr: "true"
+  apiserver-count: "{{ (groups['kube_masters']| difference(groups['delete_masters'])) | unique | length }}"
+  api-audiences: "api,istio-ca"
+  audit-log-path: "{{ kubernetes_log_dir }}/audit/apiserver_audit.log"
+  audit-log-maxage: "30"
+  audit-log-maxbackup: "10"
+  audit-log-maxsize: "100"
+  audit-log-truncate-enabled: "true"
+  audit-policy-file: "{{ kubernetes_etc_dir }}/audit/policy.yaml"
+  # 默认是 true, 设置成false,kubeadm join 认证不过
+  # anonymous-auth: "false"
+  enable-aggregator-routing: "true"
+  enable-bootstrap-token-auth: "true"
+  encryption-provider-config: "{{ kubernetes_etc_dir }}/enc/secrets-encryption.yaml"
+  kubelet-certificate-authority: "{{ k8s_pki_dir }}/ca.crt"
+  kubelet-client-certificate: "{{ k8s_pki_dir }}/apiserver-kubelet-client.crt"
+  kubelet-client-key: "{{ k8s_pki_dir }}/apiserver-kubelet-client.key"
+  # logtostderr: "false"
+  # 在给定时间内的最大 non-mutating 请求数, 默认 400, 可以调整至 1000
+  max-requests-inflight: "1500"
+  # 在给定时间内的最大 mutating 请求数, 调整 apiserver 的流控 qos, 可以调整至 3000, 默认为 200
+  max-mutating-requests-inflight: "500"
+  # 调大 resources 的 watch size, 默认为 100, 当集群中 node 以及 pod 数量非常多时可以稍微调大
+  watch-cache-sizes: "node#100,pod#1000"
+  profiling: "false"
+  tls-cipher-suites: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256"
+  # requestheader-allowed-names: "front-proxy-client"
+  # 使用 --requestheader-username-headers 指定的, 允许在头部提供用户名的客户端证书通用名称列表。
+  # 如果为空, 任何通过 --requestheader-client-ca-file 中 authorities 验证的客户端证书都是被允许的。
+  requestheader-allowed-names: ""
+  # 在信任请求头中以 --requestheader-username-headers 指示的用户名之前, 用于验证接入请求中客户端证书的根证书捆绑。
+  requestheader-client-ca-file: "{{ k8s_pki_dir }}/front-proxy-ca.crt"
+  proxy-client-cert-file: "{{ k8s_pki_dir }}/front-proxy-client.crt"
+  proxy-client-key-file: "{{ k8s_pki_dir }}/front-proxy-client.key"
+  requestheader-extra-headers-prefix: "X-Remote-Extra-"
+  requestheader-group-headers: "X-Remote-Group"
+  requestheader-username-headers: "X-Remote-User"
+  runtime-config=api/all: "true"
+  service-account-issuer: "https://kubernetes.default.svc.{{ cluster_domain_name }}"
+  service-account-signing-key-file: "{{ k8s_pki_dir }}/sa.key"
+  service-node-port-range: 30000-32767
+  v: "2"
+
+controller_extra_args:
+  # alsologtostderr: "true"
+  allocate-node-cidrs: "true"
+  attach-detach-reconcile-sync-period: "1m0s"
+  cluster-cidr: "{{ pod_network_cidr }}"
+  cluster-name: "{{ cluster_name }}"
+  concurrent-deployment-syncs: "10"
+  concurrent-gc-syncs: "30"
+  concurrent-replicaset-syncs: "10"
+  concurrent-service-syncs: "2"
+  controllers: "*,bootstrapsigner,tokencleaner"
+  horizontal-pod-autoscaler-cpu-initialization-period: "5m0s"
+  horizontal-pod-autoscaler-downscale-stabilization: "15m"
+  horizontal-pod-autoscaler-initial-readiness-delay: "30s"
+  horizontal-pod-autoscaler-sync-period: "30s"
+  horizontal-pod-autoscaler-tolerance: "0.1"
+  # 可以调整至 100, 默认值为 20
+  kube-api-qps: "100"
+  # 可以调整至 100, 默认值为 30
+  kube-api-burst: "100"
+  # logtostderr: "false"
+  # 使用 --requestheader-username-headers 指定的, 允许在头部提供用户名的客户端证书通用名称列表。
+  # 如果为空, 任何通过 --requestheader-client-ca-file 中 authorities 验证的客户端证书都是被允许的。
+  # 在信任请求头中以 --requestheader-username-headers 指示的用户名之前, 用于验证接入请求中客户端证书的根证书捆绑。
+  requestheader-allowed-names: ""
+  requestheader-client-ca-file: "{{ k8s_pki_dir }}/front-proxy-ca.crt"
+  service-cluster-ip-range: "{{ service_subnet }}"
+
+scheduler_extra_args:
+  # alsologtostderr: "true"
+  # 可以调整至 100, 默认值为 20
+  kube-api-qps: "100"
+  # 可以调整至 100, 默认值为 30
+  kube-api-burst: "100"
+  # logtostderr: "false"
+  # 使用 --requestheader-username-headers 指定的, 允许在头部提供用户名的客户端证书通用名称列表。
+  # 如果为空, 任何通过 --requestheader-client-ca-file 中 authorities 验证的客户端证书都是被允许的。
+  requestheader-allowed-names: ""
+  # 在信任请求头中以 --requestheader-username-headers 指示的用户名之前, 用于验证接入请求中客户端证书的根证书捆绑。
+  requestheader-client-ca-file: "{{ k8s_pki_dir }}/front-proxy-ca.crt"
+
+## Extra control plane host volume mounts
+## Example:
+# apiserver_extra_volumes:
+#  - name: name
+#    hostPath: /host/path
+#    mountPath: /mount/path
+#    readOnly: true
+apiserver_extra_volumes:
+  - name: secrets-encryption
+    hostPath: "{{ kubernetes_etc_dir }}/enc/secrets-encryption.yaml"
+    mountPath: "{{ kubernetes_etc_dir }}/enc/secrets-encryption.yaml"
+    readOnly: true
+controller_manager_extra_volumes: {}
+scheduler_extra_volumes:
+  - name: k8s-certs
+    hostPath: /etc/kubernetes/pki
+    mountPath: /etc/kubernetes/pki
+    readOnly: true
+
+kube_proxy:
+  proxy_mode: ipvs
+  scheduler: rr

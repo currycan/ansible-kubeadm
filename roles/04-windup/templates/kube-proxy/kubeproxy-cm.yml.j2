@@ -1,0 +1,82 @@
+apiVersion: v1
+data:
+  config.conf: |-
+    apiVersion: kubeproxy.config.k8s.io/v1alpha1
+    kind: KubeProxyConfiguration
+    bindAddress: 0.0.0.0
+    healthzBindAddress: 127.0.0.1:10256
+    metricsBindAddress: 127.0.0.1:10249
+    clientConnection:
+      acceptContentTypes: ""
+      burst: 10
+      contentType: application/vnd.kubernetes.protobuf
+      kubeconfig: /var/lib/kube-proxy/kubeconfig.conf
+      qps: 5
+    clusterCIDR: {{ pod_network_cidr }}
+    configSyncPeriod: 10m0s
+    conntrack:
+      maxPerCore: 32768
+      min: 131072
+      tcpCloseWaitTimeout: 1h0m0s
+      tcpEstablishedTimeout: 24h0m0s
+    detectLocalMode: ""
+    enableProfiling: false
+    hostnameOverride: {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}
+{% if feature_gates is defined and feature_gates | length > 0 %}
+    featureGates:
+{% for k,v in feature_gates.items() %}
+      {{ k }}: {{ v | lower }}
+{% endfor %}
+{% endif %}
+    mode: {{ kube_proxy.proxy_mode }}
+    iptables:
+      masqueradeAll: false
+      masqueradeBit: 14
+      minSyncPeriod: 0s
+      syncPeriod: 30s
+    ipvs:
+      excludeCIDRs: []
+      minSyncPeriod: 0s
+      scheduler: "rr"
+{% if (kube_version is version('1.15.0', '>=')) %}
+      # metalLB
+      strictARP: true
+{% endif %}
+      syncPeriod: 30s
+      tcpFinTimeout: 5s
+      tcpTimeout: 5s
+      udpTimeout: 5s
+    nodePortAddresses: []
+    oomScoreAdj: -999
+    portRange: ""
+{% if (kube_version is version('1.15.0', '>=')) %}
+    winkernel:
+      enableDSR: false
+      networkName: ""
+      sourceVip: ""
+{% endif %}
+  kubeconfig.conf: |-
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        server: "https://{{ kube_master_external_domain.split(',')[0] }}:6443"
+      name: default
+    contexts:
+    - context:
+        cluster: default
+        namespace: default
+        user: default
+      name: default
+    current-context: default
+    users:
+    - name: default
+      user:
+        tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+kind: ConfigMap
+metadata:
+  labels:
+    app: kube-proxy
+  name: kube-proxy
+  namespace: kube-system

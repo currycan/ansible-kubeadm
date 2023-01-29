@@ -1,0 +1,21 @@
+- hosts:
+  - kube_cluster
+  - etcds
+  - chrony
+  become: true
+  gather_facts: true
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  roles:
+  # - { role: 00-parted_disks }
+  - { role: 00-kernel }
+  - { role: 00-check-environment }
+  - { role: 01-chrony, when: "groups['chrony']|length > 0" }
+  - { role: 01-initialize }
+  - { role: 01-preinstall }
+  - { role: 02-container-runtime }
+  - { role: 03-image }
+  - { role: 03-prepare }
+  - { role: 04-lb }
+  - { role: 04-matser }
+  - { role: 04-worker }
+  - { role: 04-windup }

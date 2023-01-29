@@ -1,0 +1,23 @@
+[Unit]
+Description=Kubernetes Kubelet Server
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+After={{ container_runtime }}.service
+{% if container_runtime == 'docker' %}
+Wants=docker.socket
+{% else %}
+Wants={{ container_runtime }}.service
+{% endif %}
+
+[Service]
+User=root
+WorkingDirectory={{ kubelet_data_dir }}
+
+ExecStart=/usr/bin/kubelet
+ExecStartPre=/bin/bash /usr/bin/kubelet-pre-start.sh
+
+Restart=always
+StartLimitInterval=0
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

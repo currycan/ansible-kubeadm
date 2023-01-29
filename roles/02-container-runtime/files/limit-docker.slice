@@ -1,0 +1,8 @@
+[Unit]
+Description=Slice with MemoryLimit and CPUQuota for docker
+Before=slices.target
+
+[Slice]
+MemoryAccounting=true
+MemoryLimit=4G
+CPUQuota=50%

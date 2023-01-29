@@ -1,0 +1,22 @@
+- block:
+  - name: 二进制安装 docker
+    copy:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+      mode: 0755
+    with_items:
+      - { src: "{{ cache_dir }}/binary/docker/", dest: "/usr/bin/"}
+
+  - name: 安装 docker 命令补全工具和 docker-tag 工具
+    copy:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      mode: "{{ item.mode }}"
+    with_items:
+      - { src: "docker", dest: "/etc/bash_completion.d/", mode: "0644" }
+      - { src: "docker-tag", dest: "/usr/local/bin", mode: "0755" }
+  when:
+    - container_runtime == 'docker'
+    - inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)

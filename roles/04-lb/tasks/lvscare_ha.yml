@@ -1,0 +1,82 @@
+- block:
+  - name: 生成 {{ lb_mode }} static pod 配置文件
+    when: item.lb == lb_mode
+    template:
+      src: "{{ item.src }}.j2"
+      dest: "{{ item.dest }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"
+    with_items:
+      - { src: "kube-lvscare/lb-kube-lvscare.yaml", dest: "{{ manifest_dir }}/lb-kube-lvscare.yaml", lb: "kube-lvscare" }
+
+  - name: 确保 kubelet 除临时配置外, 暂无其他配置
+    file:
+      name: "{{ item }}"
+      state: absent
+    with_items:
+      - "{{ systemd_service_dir }}/kubelet.service.d/00-kubeadm.conf"
+      - "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf"
+      - "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf"
+
+  - name: 渲染临时 kubelet 启动文件
+    template:
+      src: "{{ item.src }}.j2"
+      dest: "{{ item.dest }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"
+    with_items:
+      - { src: "kubelet/99-kubelet-override.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/99-kubelet-override.conf" }
+      - { src: "kubelet/kubelet-override-config.yml", dest: "{{ kubelet_data_dir }}/config.yaml" }
+
+  - name: 启动 kubelet, bootstrap lb 服务
+    systemd:
+      name: kubelet
+      daemon_reload: yes
+      state: restarted
+      enabled: yes
+    register: started_kubelet
+    until: started_kubelet is succeeded
+    retries: 3
+    delay: "{{ retry_stagger }}"
+
+  - name: 以轮询的方式等待 {{ lb_mode }} 启动完成
+    shell: >
+      ip a | grep {{ lb_apiserver_ip }}
+    register: lb_status
+    until: lb_status.rc == 0
+    retries: 8
+    delay: 15
+
+  - name: 停止 kubelet
+    systemd:
+      name: kubelet
+      daemon_reload: yes
+      state: stopped
+      enabled: yes
+
+  - name: 移除 kubelet 临时配置文件
+    file:
+      name: "{{ item }}"
+      state: absent
+    with_items:
+      - "{{ systemd_service_dir }}/kubelet.service.d/99-kubelet-override.conf"
+      - "{{ kubelet_data_dir }}/config.yaml"
+      - "{{ kubelet_data_dir }}/cpu_manager_state"
+      - "{{ kubelet_data_dir }}/memory_manager_state"
+
+  - name: 渲染 kubelet 正式启动文件
+    template:
+      src: "{{ item.src }}.j2"
+      dest: "{{ item.dest }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"
+    with_items:
+      - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-kubeadm.conf" }
+      - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-container-runtime.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf" }
+      - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-cgroup.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf" }
+  when:
+  - lb_mode == "kube-lvscare"
+  - inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)

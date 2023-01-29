@@ -1,0 +1,112 @@
+- block:
+  - name: 获取 kubeconfig admin 文件
+    when: inventory_hostname in groups['kube_masters']
+    slurp:
+      src: "{{ item }}"
+    with_items:
+      - "{{ kubernetes_etc_dir }}/admin.conf"
+    register: slurp_kubeconfig
+    run_once: "{{ enable_run_once | default(true) }}"
+    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+
+  - name: 配置 kubeconfig admin 文件到 $HOME/.kube/config
+    when: inventory_hostname in groups['kube_masters']
+    copy:
+      dest: "{{ ansible_env.HOME }}/.kube/config"
+      content: "{{ item.content | b64decode }}"
+      owner: root
+      group: root
+      mode: 0600
+    no_log: true
+    with_items: "{{ slurp_kubeconfig.results }}"
+
+  # Error from server: Get "https://10.0.1.4:10250/containerLogs/kube-system/kube-apiserver-10.0.1.4/kube-apiserver?follow=true": remote error: tls: internal error
+  - name: 手动 approve csr
+    shell: >
+      [ `kubectl get csr | grep 'Pending' | wc -l` -ne 0 ] && \
+      kubectl get csr | grep Pending | awk '{print $1}' | xargs -L 1 kubectl certificate approve|| exit 0
+    environment:
+        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+    args:
+      executable: /bin/bash
+    run_once: "{{ enable_run_once | default(true) }}"
+    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+
+  - block:
+    - block:
+      - name: 配置 rbac 文件
+        copy:
+          src: "rbac"
+          dest: "{{ kubernetes_etc_dir }}"
+          mode: 0644
+
+      - name: 创建 RBAC 资源
+        shell: >
+          kubectl apply -f "{{ kubernetes_etc_dir }}/rbac"
+        environment:
+          KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+      delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+      run_once: true
+
+    - include_tasks: kube-proxy.yml
+    - include_tasks: coredns.yml
+
+  - name: master 设置节点标签, 并设置污点（禁止调度）
+    when: inventory_hostname in groups['kube_masters']
+    shell: >
+      {% if groups['kube_masters'] | length > 1 -%}
+        kubectl taint node {{ inventory_hostname }} node-role.kubernetes.io/master=true:NoSchedule --overwrite;
+      {%- endif -%}
+      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/master='' --overwrite;
+      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/control-plane='' --overwrite;
+      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/ingress='' --overwrite
+    until: set_taint_master.rc == 0
+    retries: 3
+    delay: "{{ retry_stagger }}"
+    register: set_taint_master
+
+  - name: 允许 worker 节点被调度, 设置节点标签
+    when: inventory_hostname in groups['kube_nodes']
+    shell: >
+      [ `kubectl get nodes {{ inventory_hostname }} --show-labels | grep cloudprovider` ] && \
+      kubectl taint node {{ inventory_hostname }} node.cloudprovider.kubernetes.io/uninitialized-;
+      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/worker='' --overwrite
+    # register: set_taint_worker
+    # until: set_taint_worker.rc == 0
+    # retries: 3
+    # delay: "{{ retry_stagger }}"
+    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+
+  - block:
+    - name: 创建 endpoint 配置清单目录
+      when: inventory_hostname in groups['kube_masters']
+      file:
+        name: "{{ kubernetes_etc_dir }}/endpoint"
+        state: directory
+        mode: 0664
+
+    - name: 配置核心组件的 endpoint 清单文件, 以便用于prometheus监控
+      when: inventory_hostname in groups['kube_masters']
+      template:
+        src: "endpoint/{{ item }}.j2"
+        dest: "{{ kubernetes_etc_dir }}/endpoint/{{ item }}"
+        mode: 0664
+      with_items:
+        - control-plane-ep.yml
+        - data-plane-ep.yml
+
+    - name: 创建核心组件的 endpoint
+      shell: >
+        kubectl apply -f {{ kubernetes_etc_dir }}/endpoint/
+      environment:
+        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+      register: apply_endpoint
+      # until: apply_endpoint.rc == 0
+      # retries: 3
+      # delay: "{{ retry_stagger }}"
+      run_once: "{{ enable_run_once | default(true) }}"
+      delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+
+  - name: 普通用户配置集群访问权限
+    include_tasks: normal-user-admission.yml
+  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)

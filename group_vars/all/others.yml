@@ -1,0 +1,15 @@
+# 普通用户, docker/kubectl 准入管理, 非 root 也可以使用kubectl docker 命令
+normal_user:
+  - devops
+
+# ansible 运行剧本时, 某些任务会重试, 设置重试间隔基础时间为5秒
+retry_stagger: 5
+
+# 开启代理获取被墙的资源
+proxy_env:
+  # http://:<usr>@<passwd>:<ip>:<port>
+  http_proxy: "http://{{ proxy_user }}:{{ proxy_passwd }}@{{ proxy_server }}"
+  # https://<usr>:<passwd>@<ip>:<port>
+  https_proxy: "http://{{ proxy_user }}:{{ proxy_passwd }}@{{ proxy_server }}"
+  # no proxy
+  no_proxy: "{{ no_proxy }}"

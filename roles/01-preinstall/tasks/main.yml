@@ -1,0 +1,12 @@
+# 安装 containerd
+- include_tasks: containerd.yml
+# 安装 docker
+- include_tasks: docker.yml
+# 安装 etcdctl
+- include_tasks: etcd.yml
+# 安装 kubernetes 所有节点依赖
+- include_tasks: kube_cluster.yml
+# 安装 kubernetes master 节点依赖
+- include_tasks: master.yml
+# 安装 kubernetes node 节点依赖
+- include_tasks: worker.yml

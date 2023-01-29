@@ -1,0 +1,15 @@
+# 如果通过加密配置无法读取资源（因为密钥已更改）, 唯一的方法是直接从底层 etcd 中删除该密钥。
+#kind: EncryptionConfig
+#apiVersion: v1
+
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+  - resources:
+    - secrets
+    providers:
+    - aescbc:
+        keys:
+        - name: key
+          secret: "{{ encryption_config_secret }}"
+    - identity: {}
