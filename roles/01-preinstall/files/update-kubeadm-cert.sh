@@ -250,7 +250,7 @@ main() {
   local node_tpye=$1
 
   KUBE_PATH=/etc/kubernetes
-  CAER_DAYS=36500
+  CAER_DAYS=3650
 
   # backup $KUBE_PATH to $KUBE_PATH.old-$(date +%Y%m%d)
   if [ ! enable_init ]; then
