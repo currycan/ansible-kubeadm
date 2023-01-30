@@ -6,9 +6,6 @@ kube_image_repository: registry.cn-hangzhou.aliyuncs.com/google_containers
 
 # kubelet 参数
 kubelet_max_pods: 128
-# 默认关闭, 不预留资源, 最大限度使用资源
-kube_reserved_enabled: false
-system_reserved_enabled: false
 
 feature_gates:
   # kubectl debug 1.16.0 新增特性 , 默认关闭

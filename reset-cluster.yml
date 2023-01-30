@@ -12,7 +12,7 @@
   roles:
   - { role: 99-cluster-reset, reset_k8s: true }
 
-- hosts: kube_etcds
+- hosts: kube_masters
   become: true
   gather_facts: false
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"

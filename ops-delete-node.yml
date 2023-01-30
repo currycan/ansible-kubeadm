@@ -1,0 +1,11 @@
+# Tear down nodes
+- hosts:
+  - delete_nodes
+  become: true
+  serial: 1
+  gather_facts: false
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  roles:
+  - { role: 98-cluster-ops/delete/node }
+  - { role: 99-cluster-reset, reset_k8s: true }
+  - { role: 99-cluster-reset, reset_kernel_module: false }

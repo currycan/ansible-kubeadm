@@ -1,11 +1,13 @@
+# add_nodes
 - hosts:
-  - kube_cluster
-  - chrony
+  - add_nodes
   become: true
+  # serial: 2
   gather_facts: true
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  vars:
+    add_nodes_task: true
   roles:
-  - 00-parted_disks
   - 00-kernel
   - 00-check-environment
   - { role: 01-chrony, when: "groups['chrony']|length > 0" }
@@ -14,7 +16,9 @@
   - 02-container-runtime
   - 03-image
   - 03-prepare
-  - 04-lb
-  - 04-matser
   - 04-worker
+
+- hosts:
+  - kube_cluster
+  roles:
   - 04-windup

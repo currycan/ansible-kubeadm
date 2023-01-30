@@ -1,14 +1,14 @@
 - block:
   - block:
-    - name: 创建 kube-coredns 组件配置文件目录
+    - name: 创建 kube-proxy 组件配置文件目录
       file:
         path: "{{ item }}"
         state: directory
         mode: 0644
       with_items:
-      - "{{ addons_dir }}/coredns"
+      - "{{ addons_dir }}/kube-proxy"
 
-    - name: 渲染 coredns 配置文件
+    - name: 渲染 kube-proxy 配置文件
       when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"
       template:
         src: "{{ item.src }}.j2"
@@ -17,21 +17,21 @@
         group: "root"
         mode: "0644"
       with_items:
-        - { src: "coredns/coredns.yaml", dest: "{{ addons_dir }}/coredns/coredns.yaml" }
-        - { src: "coredns/autoscale.yaml", dest: "{{ addons_dir }}/coredns/autoscale.yaml" }
-        - { src: "coredns/nodelocaldns.yaml", dest: "{{ addons_dir }}/coredns/nodelocaldns.yaml" }
+        - { src: "kube-proxy/kubeproxy-cm.yml", dest: "{{ addons_dir }}/kube-proxy/kubeproxy-cm.yml" }
+        - { src: "kube-proxy/kubeproxy-ds.yml", dest: "{{ addons_dir }}/kube-proxy/kubeproxy-ds.yml" }
     when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"
 
-  - name: 部署 coredns
+  - name: 部署 kube-proxy
     changed_when: true
     command: >
-      kubectl apply -f "{{ addons_dir }}/coredns/"
+      kubectl apply -f "{{ addons_dir }}/kube-proxy/"
     environment:
       KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-    register: apply_coredns
-    until: apply_coredns.rc == 0
-    retries: 3
-    delay: "{{ retry_stagger }}"
+    # register: apply_kubeproxy
+    # until: apply_kubeproxy.rc == 0
+    # retries: 3
+    # delay: "{{ retry_stagger }}"
     run_once: true
     delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
-  when: skip_coredns | bool
+  when:
+  - skip_kube_proxy | bool

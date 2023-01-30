@@ -40,6 +40,18 @@
           --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
           --ignore-preflight-errors=all \
           --v=5
+
+    - name: 允许 worker 节点被调度, 设置节点标签
+      when: inventory_hostname in groups['kube_nodes']
+      shell: >
+        [ `kubectl get nodes {{ inventory_hostname }} --show-labels | grep cloudprovider` ] && \
+        kubectl taint node {{ inventory_hostname }} node.cloudprovider.kubernetes.io/uninitialized-;
+        kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/worker='' --overwrite
+      # register: set_taint_worker
+      # until: set_taint_worker.rc == 0
+      # retries: 3
+      # delay: "{{ retry_stagger }}"
+      delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
     when: 'get_nodes_result.stdout != "1"'
   when:
     - inventory_hostname not in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)

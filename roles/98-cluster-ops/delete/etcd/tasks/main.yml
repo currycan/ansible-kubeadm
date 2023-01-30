@@ -1,0 +1,122 @@
+- name: 校验删除 etcd 节点数量
+  run_once: true
+  assert:
+    that: (groups['delete_masters'] | unique)|length > 0
+    msg: " 未配置删除 etcd 节点!"
+
+- name: 校验 etcd 节点数量
+  run_once: true
+  assert:
+    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique)|length > 1
+    msg: "Etcd 节点数量大于 1 才可进行 etcd 节点移除操作。"
+
+- name: 校验将被移除的 etcd 节点是否在原 etcd 组中
+  run_once: true
+  assert:
+    that: "{{ item in groups['kube_masters'] }}"
+    msg: "当前节点: {{ item }}, 并未在 etcd 组中, 不需要进行移除操作。"
+  with_items: "{{ groups['delete_masters'] }}"
+
+- name: 校验现有 etcd 节点数量
+  run_once: true
+  assert:
+    that: groups['kube_masters']|length > 1
+    msg: "Etcd 节点数量大于 1 才可进行 etcd 节点移除操作。"
+
+- name: 校验移除 etcd 节点后剩余 etcd 节点数量
+  run_once: true
+  assert:
+    that: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique)|length >= 1 }}"
+    msg: "移除 etcd 节点后, 剩余 etcd 节点数量应大于等于 1。"
+
+- name: 获取将要移除的 etcd 节点 member id
+  changed_when: true
+  failed_when: false
+  shell: >
+    set -o pipefail;
+    etcdctl member list | grep {{ inventory_hostname }} | cut -d',' -f1
+  environment:
+    - ETCDCTL_CERT: "{{ etcd_pki_dir }}/healthcheck-client.crt"
+    - ETCDCTL_KEY: "{{ etcd_pki_dir }}/healthcheck-client.key"
+    - ETCDCTL_CACERT: "{{ etcd_pki_dir }}/ca.crt"
+    - ETCDCTL_ENDPOINTS: "{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)| unique %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
+    - ETCDCTL_API: 3
+  args:
+    executable: /bin/bash
+  delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
+  register: etcd_member_id
+
+- name: 从 etcd 集群中移除 {{ inventory_hostname }} 节点
+  when: etcd_member_id.stdout | length > 0
+  changed_when: true
+  failed_when: false
+  shell: >
+    set -o pipefail;
+    etcdctl member remove {{ etcd_member_id.stdout }}
+  environment:
+    - ETCDCTL_CERT: "{{ etcd_pki_dir }}/healthcheck-client.crt"
+    - ETCDCTL_KEY: "{{ etcd_pki_dir }}/healthcheck-client.key"
+    - ETCDCTL_CACERT: "{{ etcd_pki_dir }}/ca.crt"
+    - ETCDCTL_ENDPOINTS: "{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)| unique %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
+    - ETCDCTL_API: 3
+  args:
+    executable: /bin/bash
+  delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
+
+- name: 停止运行 etcd
+  systemd:
+    name: etcd
+    state: stopped
+    enabled: no
+  register: stop_etcd_result
+  failed_when: stop_etcd_result.failed
+
+- name: 删除所有 etcd 证书及相关配置
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ etcd_data_dir }}"
+    - "{{ etcd_config_dir }}"
+    - "{{ etcd_data_bak_dir }}"
+    - "{{ etcd_pki_dir }}"
+    - "/usr/local/bin/etcd_cron.sh"
+    - "{{ systemd_service_dir }}/etcd.service"
+    - "{{ profile_dir }}/etcd.sh"
+
+- name: 删除所有 etcd ca 证书
+  when: inventory_hostname not in groups['kube_masters']
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+  - "{{ etcd_pki_dir }}/ca.crt"
+
+- name: 删除 etcd 数据备份 crontab 任务
+  cron:
+    name: "create etcd data backup"
+    state: absent
+
+# - block:
+#   - name: 获取 etcd ca证书
+#     slurp:
+#       src: "{{ item }}"
+#     with_items:
+#       - "{{ etcd_pki_dir }}/ca.crt"
+#     register: slurp_etcd_ca_cert
+#     run_once: true
+#     delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
+
+#   - name: 创建 etcd 证书存放目录
+#     file: path={{ etcd_pki_dir }} state=directory
+
+#   - name: 恢复 etcd ca 证书到 master 节点
+#     copy:
+#       dest: "{{ item.source }}"
+#       content: "{{ item.content | b64decode }}"
+#       owner: root
+#       group: root
+#       mode: 0644
+#     no_log: true
+#     with_items: "{{ slurp_etcd_ca_cert.results }}"
+#   when: inventory_hostname in groups['kube_masters']

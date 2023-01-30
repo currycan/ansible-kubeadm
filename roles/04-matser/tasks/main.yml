@@ -11,3 +11,62 @@
     environment:
       ENABLE_INIT: true
   when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"
+
+- name: 获取 kubeconfig admin 文件
+  slurp:
+    src: "{{ item }}"
+  with_items:
+    - "{{ kubernetes_etc_dir }}/admin.conf"
+  register: slurp_kubeconfig
+  run_once: true
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+
+- block:
+  - name: 配置 kubeconfig admin 文件到 $HOME/.kube/config
+    when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
+    copy:
+      dest: "{{ ansible_env.HOME }}/.kube/config"
+      content: "{{ item.content | b64decode }}"
+      owner: root
+      group: root
+      mode: 0600
+    no_log: true
+    with_items: "{{ slurp_kubeconfig.results }}"
+
+  - block:
+    - name: 配置 rbac 文件
+      copy:
+        src: "rbac"
+        dest: "{{ kubernetes_etc_dir }}"
+        mode: 0644
+
+    - name: 创建 RBAC 资源
+      shell: >
+        kubectl apply -f "{{ kubernetes_etc_dir }}/rbac"
+      environment:
+        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+    run_once: true
+
+  - include_tasks: kube-proxy.yml
+  - include_tasks: coredns.yml
+
+  - name: master 设置节点标签, 并设置污点（禁止调度）
+    when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
+    shell: >
+      {% if groups['kube_masters'] | length > 1 -%}
+        kubectl taint node {{ inventory_hostname }} node-role.kubernetes.io/master=true:NoSchedule --overwrite;
+      {%- endif -%}
+      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/master='' --overwrite;
+      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/control-plane='' --overwrite;
+      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/ingress='' --overwrite
+    environment:
+        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+    # until: set_taint_master.rc == 0
+    # retries: 3
+    # delay: "{{ retry_stagger }}"
+    # register: set_taint_master
+
+  - name: 普通用户配置集群访问权限
+    include_tasks: normal-user-admission.yml
+  when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"

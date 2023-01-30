@@ -1,0 +1,34 @@
+- hosts:
+  - delete_masters
+  become: true
+  serial: 1
+  gather_facts: false
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  roles:
+  - 98-cluster-ops/delete/master
+  - 98-cluster-ops/delete/etcd
+  # - { role: 99-cluster-reset, reset_k8s: true }
+  # - { role: 99-cluster-reset, reset_kernel_module: false }
+
+- hosts:
+  - kube_masters
+  become: true
+  gather_facts: true
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  roles:
+  tasks:
+  - name: 其他 etcd 重新配置参数
+    when: "groups['delete_masters']|length > 0"
+    include_role:
+      name: 98-cluster-ops/delete/etcd
+      tasks_from: "{{ inventory_dir }}/roles/98-cluster-ops/delete/etcd/tasks/update-etcd.yml"
+  - name: master 节点重新配置参数
+    when: "groups['delete_masters']|length > 0"
+    include_role:
+      name: cluster-ops/delete/etcd
+      tasks_from: "{{ inventory_dir }}/roles/98-cluster-ops/delete/etcd/tasks/update-k8s.yml"
+
+- hosts:
+  - kube_cluster
+  roles:
+  - 04-windup
