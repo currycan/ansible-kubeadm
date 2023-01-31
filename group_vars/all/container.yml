@@ -12,6 +12,3 @@ cri_socket: >-
 proxy_registries:
   - "https://8trm4p9x.mirror.aliyuncs.com"
   - "https://docker.mirrors.ustc.edu.cn"
-
-# insecure_registry_cidr:
-#   - "{{ lb_apiserver_ip.split('.')[:-1] | join('.') }}.0/24"

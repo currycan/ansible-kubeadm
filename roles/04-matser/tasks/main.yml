@@ -33,18 +33,17 @@
     no_log: true
     with_items: "{{ slurp_kubeconfig.results }}"
 
-  - block:
-    - name: 配置 rbac 文件
-      copy:
-        src: "rbac"
-        dest: "{{ kubernetes_etc_dir }}"
-        mode: 0644
+  - name: 配置 rbac 文件
+    copy:
+      src: "rbac"
+      dest: "{{ kubernetes_etc_dir }}"
+      mode: 0644
 
-    - name: 创建 RBAC 资源
-      shell: >
-        kubectl apply -f "{{ kubernetes_etc_dir }}/rbac"
-      environment:
-        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+  - name: 创建 RBAC 资源
+    shell: >
+      kubectl apply -f "{{ kubernetes_etc_dir }}/rbac"
+    environment:
+      KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
     delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
     run_once: true
 

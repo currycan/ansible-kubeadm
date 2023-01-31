@@ -146,7 +146,7 @@ spec:
           - weight: 100
             preference:
               matchExpressions:
-              - key: 'node-role.kubernetes.io/master'
+              - key: 'node-role.kubernetes.io/worker'
                 operator: "Exists"
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

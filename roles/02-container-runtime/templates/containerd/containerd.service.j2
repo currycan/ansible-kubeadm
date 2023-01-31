@@ -7,7 +7,7 @@ After=network.target
 {% if enable_proxy is defined and enable_proxy | bool -%}
 Environment="HTTP_PROXY={{ proxy_env.http_proxy }}"
 Environment="HTTPS_PROXY={{ proxy_env.https_proxy }}"
-Environment="NO_PROXY=localhost, 127.0.0.1, 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, {{ local_image_repo }}, {% for reg in proxy_registries -%}{{ reg }}{%- if not loop.last -%}, {% endif -%}{%- endfor -%}, {%- if insecure_registry_cidr is defined and insecure_registry_cidr | length > 0 -%}{% for reg in insecure_registry_cidr -%},{{ reg }}{%- if not loop.last -%}, {% endif -%}{%- endfor -%}{% endif -%}"
+Environment="NO_PROXY=localhost, 127.0.0.1, 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, {{ local_image_repo }}, {% for reg in proxy_registries -%}{{ reg }}{%- if not loop.last -%}, {% endif -%}{%- endfor -%}"
 {% endif -%}
 ExecStartPre=-/sbin/modprobe overlay
 ExecStart=/usr/bin/containerd

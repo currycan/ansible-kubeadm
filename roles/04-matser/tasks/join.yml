@@ -6,23 +6,29 @@
   register: get_nodes_result
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
-# # 由于 etcd 是二进制安装, 因此需要加上配置： --config kubeadm-config.yaml
-- name: 生成 master 节点 join token
-  shell: >
-    echo $(kubeadm token create --print-join-command --ttl=15m) --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
-  environment:
-    KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-  run_once: true
-  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
-  register: master_kubeadm_join_cmd
-
-- name: 生成 kubeadm join 命令
-  run_once: true
+- name: 判断 {{ inventory_hostname }} 是否已经加入集群
   set_fact:
-    kubeadm_join: "{{ master_kubeadm_join_cmd.stdout }}"
+    joined: "{% if get_nodes_result.stdout != '1' %}false{% else %}true{% endif %}"
 
-- debug: var=kubeadm_join
-  run_once: true
+- block:
+  # # 由于 etcd 是二进制安装, 因此需要加上配置： --config kubeadm-config.yaml
+  - name: 生成 master 节点 join token
+    shell: >
+      echo $(kubeadm token create --print-join-command --ttl=15m) --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+    environment:
+      KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+    run_once: true
+    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+    register: master_kubeadm_join_cmd
+
+  - name: 获取 kubeadm join 命令
+    run_once: true
+    set_fact:
+      kubeadm_join: "{{ master_kubeadm_join_cmd.stdout }}"
+
+  - debug: var=kubeadm_join
+    run_once: true
+  when: not joined | bool
 
 - block:
   # - pause:
@@ -41,5 +47,5 @@
 
   - include_tasks: check_master_status.yml
   when:
-    - 'get_nodes_result.stdout != "1"'
+    - not joined | bool
     - inventory_hostname != groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
