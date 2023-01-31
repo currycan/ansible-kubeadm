@@ -1,14 +1,15 @@
-- name: 获取其他 master 节点各组件状态
+- name: 确认其他 master 节点是否已经加入集群
+  when: inventory_hostname != groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
   shell: >
-    kubectl get nodes | grep {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} | wc -l || exit 0
+    joined_or_not=`kubectl get nodes | grep {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} | wc -l`;
+    if [ $joined_or_not -eq 1 ];then
+      echo true;
+    else
+      echo false;
+    fi
   environment:
     KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-  register: get_nodes_result
-  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
-
-- name: 判断 {{ inventory_hostname }} 是否已经加入集群
-  set_fact:
-    joined: "{% if get_nodes_result.stdout != '1' %}false{% else %}true{% endif %}"
+  register: master_already_joined
 
 - block:
   # # 由于 etcd 是二进制安装, 因此需要加上配置： --config kubeadm-config.yaml
@@ -17,18 +18,18 @@
       echo $(kubeadm token create --print-join-command --ttl=15m) --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
     environment:
       KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-    run_once: true
-    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
     register: master_kubeadm_join_cmd
 
   - name: 获取 kubeadm join 命令
-    run_once: true
     set_fact:
       kubeadm_join: "{{ master_kubeadm_join_cmd.stdout }}"
 
   - debug: var=kubeadm_join
-    run_once: true
-  when: not joined | bool
+  run_once: true
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+  # when:
+  #   - master_already_joined.stdout is defined
+  #   - not master_already_joined.stdout | bool
 
 - block:
   # - pause:
@@ -36,9 +37,14 @@
 
   # master使用kubeadm升级1.18之后 遇到新的node不能添加问题,https://github.com/kubernetes/website/pull/19868/files
   # kubeadm init phase bootstrap-token
+  - debug: msg="其他 master 节点加入集群, 可能需要一定时间。。"
   - name: 其他 master 节点加入集群
     shell: >
       timeout -k 240s 240s;
+      systemctl stop kubelet.service;
+      rm -f {{ kubelet_data_dir }}/cpu_manager_state;
+      rm -f {{ kubelet_data_dir }}/memory_manager_state;
+      rm -f {{ manifest_dir }}/kube-*;
       {{ kubeadm_join }} --control-plane \
         --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
         --ignore-preflight-errors=all \
@@ -47,5 +53,6 @@
 
   - include_tasks: check_master_status.yml
   when:
-    - not joined | bool
+    - master_already_joined.stdout is defined
+    - not master_already_joined.stdout | bool
     - inventory_hostname != groups['kube_masters'] | difference(groups['delete_masters']) | unique | first

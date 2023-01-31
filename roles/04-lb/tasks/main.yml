@@ -1,4 +1,5 @@
 - name: 获取当前 {{ lb_mode }} 服务运行状态
+  when: lb_mode != "slb"
   shell: >
     lb_running_num=0;
     lb_srvs='{{ lb_mode }}';
@@ -43,4 +44,6 @@
     - lb_mode == "kube-vip"
     - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
     include_tasks: vip_ha.yml
-  when: not lb_running.stdout | bool
+  when:
+    - lb_mode != "slb"
+    - not lb_running.stdout | bool

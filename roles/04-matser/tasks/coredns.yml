@@ -28,10 +28,10 @@
       kubectl apply -f "{{ addons_dir }}/coredns/"
     environment:
       KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-    # register: apply_coredns
-    # until: apply_coredns.rc == 0
-    # retries: 3
-    # delay: "{{ retry_stagger }}"
+    register: apply_coredns
+    until: apply_coredns.rc == 0
+    retries: 3
+    delay: "{{ retry_stagger }}"
     run_once: true
     delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
   when: skip_coredns | bool

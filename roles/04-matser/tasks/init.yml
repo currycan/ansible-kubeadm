@@ -1,8 +1,8 @@
-- name: 获取第一个 master 节点各组件状态
+- name: 检查第一个 master 节点是否已经正常拉起
   when: inventory_hostname == groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
   shell: >
     cs_running_num=0;
-    for cs in {kube-apiserver,kube-controller-manager,kube-scheduler};
+    for cs in {kube-apiserver,kube-controller-manager,kube-scheduler,etcd};
     do
       {% if container_runtime == 'docker' -%}
       [ `docker ps --filter name=k8s_${cs}.* --filter status=running | wc -l` -eq 2 ] && cs_running_num=`expr $cs_running_num + 1`;
@@ -10,8 +10,12 @@
       [ `crictl ps --name=${cs}.* --state running | wc -l` -eq 2 ] && cs_running_num=`expr $cs_running_num + 1`;
       {%- endif -%}
     done;
-    echo $cs_running_num
-  register: cs_status_result
+    if [ $cs_running_num -eq 4 ];then
+      echo true;
+    else
+      echo false;
+    fi
+  register: first_master_already_running
 
 - block:
   - name: 第一个 master 节点渲染 kubeadm 的配置文件
@@ -60,6 +64,6 @@
     until: lb_status.rc == 0
     retries: 8
     delay: 15
-  when: 'cs_status_result.stdout is defined and cs_status_result.stdout != "3"'
+  when: not first_master_already_running.stdout | bool
   run_once: true
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"

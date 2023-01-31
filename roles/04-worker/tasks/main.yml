@@ -1,58 +1,65 @@
-- name: 获取其他 worker 节点各组件状态
+- name: 确认 worker 节点是否已经加入集群
   when:
     - inventory_hostname not in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
     - inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)
   shell: >
-    kubectl get nodes | grep {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} | wc -l || exit 0
+    joined_or_not=`kubectl get nodes | grep {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} | wc -l`;
+    if [ $joined_or_not -eq 1 ];then
+      echo true;
+    else
+      echo false;
+    fi
   environment:
     KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-  register: get_nodes_result
+  register: worker_already_joined
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
-
-# # 由于 etcd 是二进制安装, 因此需要加上配置： --config kubeadm-config.yaml
-- name: 创建 worker 节点 join token
-  shell: >
-    echo $(kubeadm token create --print-join-command --ttl=15m) --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
-  environment:
-    KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-  run_once: true
-  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
-  register: worker_kubeadm_join_cmd
-
-- name: 生成 kubeadm join 命令
-  set_fact:
-    kubeadm_join: "{{ worker_kubeadm_join_cmd.stdout }}"
-  run_once: true
-
-- debug: var=kubeadm_join
-  run_once: true
 
 - block:
-  - block:
-    # - pause:
-    #     prompt: "暂停, 手动确认继续执行, 测试用。。。"
+  # # 由于 etcd 是二进制安装, 因此需要加上配置： --config kubeadm-config.yaml
+  - name: 生成 worker 节点 join token
+    shell: >
+      echo $(kubeadm token create --print-join-command --ttl=15m) --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+    environment:
+      KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+    register: worker_kubeadm_join_cmd
 
-    - debug: msg="worker 节点加入集群, 可能需要一定时间。。"
-    - name: worker 节点加入集群
-      shell: >
-        timeout -k 240s 240s;
-        {{ kubeadm_join }} \
-          --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
-          --ignore-preflight-errors=all \
-          --v=5
+  - name: 获取 kubeadm join 命令
+    set_fact:
+      kubeadm_join: "{{ worker_kubeadm_join_cmd.stdout }}"
 
-    - name: 允许 worker 节点被调度, 设置节点标签
-      when: inventory_hostname in groups['kube_nodes']
-      shell: >
-        [ `kubectl get nodes {{ inventory_hostname }} --show-labels | grep cloudprovider` ] && \
-        kubectl taint node {{ inventory_hostname }} node.cloudprovider.kubernetes.io/uninitialized-;
-        kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/worker='' --overwrite
-      # register: set_taint_worker
-      # until: set_taint_worker.rc == 0
-      # retries: 3
-      # delay: "{{ retry_stagger }}"
-      delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
-    when: 'get_nodes_result.stdout != "1"'
+  - debug: var=kubeadm_join
+  run_once: true
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
   when:
+    - worker_already_joined.stdout is defined
+    - not worker_already_joined.stdout | bool
+
+- block:
+  # - pause:
+  #     prompt: "暂停, 手动确认继续执行, 测试用。。。"
+
+  - debug: msg="worker 节点加入集群, 可能需要一定时间。。"
+  - name: worker 节点加入集群
+    shell: >
+      timeout -k 240s 240s;
+      {{ kubeadm_join }} \
+        --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
+        --ignore-preflight-errors=all \
+        --v=5
+
+  - name: 允许 worker 节点被调度, 设置节点标签
+    when: inventory_hostname in groups['kube_nodes']
+    shell: >
+      [ `kubectl get nodes {{ inventory_hostname }} --show-labels | grep cloudprovider` ] && \
+      kubectl taint node {{ inventory_hostname }} node.cloudprovider.kubernetes.io/uninitialized-;
+      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/worker='' --overwrite
+    # register: set_taint_worker
+    # until: set_taint_worker.rc == 0
+    # retries: 3
+    # delay: "{{ retry_stagger }}"
+    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+  when:
+    - worker_already_joined.stdout is defined
+    - not worker_already_joined.stdout | bool
     - inventory_hostname not in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
     - inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)

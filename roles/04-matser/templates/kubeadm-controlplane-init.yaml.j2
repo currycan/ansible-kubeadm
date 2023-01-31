@@ -47,7 +47,7 @@ apiVersion: kubeadm.k8s.io/v1beta1
 kind: ClusterConfiguration
 kubernetesVersion: "v{{ kube_version }}"
 clusterName: "{{ cluster_name }}"
-controlPlaneEndpoint: "{{ kube_master_external_domain.split(',')[0] }}:{%- if groups['kube_masters'] | length == 1 or lb_mode == 'kube-vip' or lb_mode == 'kube-lvscare' -%}6443{%- else -%}8443{%- endif %}"
+controlPlaneEndpoint: "{%- if lb_mode == 'slb' -%}{{ lb_apiserver_ip }}{%- else -%}{{ kube_master_external_domain.split(',')[0] }}{%- endif %}:6443"
 certificatesDir: "{{ k8s_pki_dir }}"
 {% if (kube_version is version('1.15.0', '>=')) and (not skip_coredns | bool) %}
 dns:

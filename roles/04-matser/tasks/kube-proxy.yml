@@ -27,10 +27,10 @@
       kubectl apply -f "{{ addons_dir }}/kube-proxy/"
     environment:
       KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-    # register: apply_kubeproxy
-    # until: apply_kubeproxy.rc == 0
-    # retries: 3
-    # delay: "{{ retry_stagger }}"
+    register: apply_kubeproxy
+    until: apply_kubeproxy.rc == 0
+    retries: 3
+    delay: "{{ retry_stagger }}"
     run_once: true
     delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
   when:
