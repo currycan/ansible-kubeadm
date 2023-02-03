@@ -2,15 +2,15 @@
 
 # 此脚本为批量部署服务器ssh key使用
 
-#set -x
-
-yum install -y expect
+# set -x
 
 # check args count
-if test $# -ne 3; then
-    echo -e "\nUsage: $0 < hosts file > < username > < password >\n"
+if [ $# -ne 3 -a $# -ne 2 ]; then
+    echo -e "\nUsage: $0 < hosts file > < username > <optional: password >\n"
     exit 1
 fi
+
+yum install -y expect
 
 # check hosts file
 hosts_file=$1
@@ -20,7 +20,9 @@ if ! test -e $hosts_file; then
 fi
 
 username=$2
-password=$3
+if test $# -eq 3 ; then
+    password=$3
+fi
 
 # check sshkey file
 sshkey_file=~/.ssh/id_ed25519.pub
@@ -46,16 +48,28 @@ ssh_key_copy()
     fi
 
     # start copy
-    expect -c "
-    set timeout 100
-    spawn ssh-copy-id $username@$1
-    expect {
-    \"yes/no\"   { send \"yes\n\"; exp_continue; }
-    \"*assword\" { send \"$password\n\"; }
-    \"already exist on the remote system\" { exit 1; }
-    }
-    expect eof
-    "
+    if [ -z $password ]; then
+        expect -c "
+        set timeout 100
+        spawn ssh-copy-id $username@$1
+        expect {
+            \"yes/no\"   { send \"yes\n\"; exp_continue; }
+            \"already exist on the remote system\" { exit 1; }
+        }
+        expect eof
+        "
+    else
+        expect -c "
+        set timeout 100
+        spawn ssh-copy-id $username@$1
+        expect {
+            \"yes/no\"   { send \"yes\n\"; exp_continue; }
+            \"*assword\" { send \"$password\n\"; }
+            \"already exist on the remote system\" { exit 1; }
+        }
+        expect eof
+        "
+    fi
 }
 
 # auto sshkey pair
