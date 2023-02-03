@@ -20,9 +20,9 @@
     - { name: 'net.ipv4.conf.all.arp_announce', value: '2' }
 
 - include_tasks: "containerd/main.yml"
-  when: inventory_hostname in groups['kube_cluster'] | unique
+  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
 
 - include_tasks: "docker/main.yml"
   when:
     - container_runtime == 'docker'
-    - inventory_hostname in groups['kube_cluster'] | unique
+    - inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)

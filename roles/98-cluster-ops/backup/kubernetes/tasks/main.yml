@@ -46,4 +46,4 @@
       src: "{{ kubernetes_latest_back_dir.path }}.tar.gz"
       dest: "{{ (playbook_dir + '/cluster-backup/' + inventory_hostname + '-' + kubernetes_latest_back_dir.path|basename + '.tar.gz') | realpath }}"
       flat: yes
-  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']))
+  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)

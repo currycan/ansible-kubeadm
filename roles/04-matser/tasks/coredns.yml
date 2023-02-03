@@ -1,26 +1,23 @@
 - block:
-  - block:
-    - name: 创建 kube-coredns 组件配置文件目录
-      file:
-        path: "{{ item }}"
-        state: directory
-        mode: 0644
-      with_items:
-      - "{{ addons_dir }}/coredns"
+  - name: 创建 kube-coredns 组件配置文件目录
+    file:
+      path: "{{ item }}"
+      state: directory
+      mode: 0644
+    with_items:
+    - "{{ addons_dir }}/coredns"
 
-    - name: 渲染 coredns 配置文件
-      when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"
-      template:
-        src: "{{ item.src }}.j2"
-        dest: "{{ item.dest }}"
-        owner: "root"
-        group: "root"
-        mode: "0644"
-      with_items:
-        - { src: "coredns/coredns.yaml", dest: "{{ addons_dir }}/coredns/coredns.yaml" }
-        - { src: "coredns/autoscale.yaml", dest: "{{ addons_dir }}/coredns/autoscale.yaml" }
-        - { src: "coredns/nodelocaldns.yaml", dest: "{{ addons_dir }}/coredns/nodelocaldns.yaml" }
-    when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"
+  - name: 渲染 coredns 配置文件
+    template:
+      src: "{{ item.src }}.j2"
+      dest: "{{ item.dest }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"
+    with_items:
+      - { src: "coredns/coredns.yaml", dest: "{{ addons_dir }}/coredns/coredns.yaml" }
+      - { src: "coredns/autoscale.yaml", dest: "{{ addons_dir }}/coredns/autoscale.yaml" }
+      - { src: "coredns/nodelocaldns.yaml", dest: "{{ addons_dir }}/coredns/nodelocaldns.yaml" }
 
   - name: 部署 coredns
     changed_when: true

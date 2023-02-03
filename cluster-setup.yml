@@ -8,7 +8,7 @@
   # - 00-parted_disks
   - 00-kernel
   - 00-check-environment
-  - { role: 01-chrony, when: "groups['chrony']|length > 0" }
+  - 01-chrony
   - 01-initialize
   - 01-preinstall
   - 02-container-runtime

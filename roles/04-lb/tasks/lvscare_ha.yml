@@ -77,6 +77,4 @@
       - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-kubeadm.conf" }
       - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-container-runtime.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf" }
       - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-cgroup.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf" }
-  when:
-  - lb_mode == "kube-lvscare"
-  - inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
+  when: lb_mode == "kube-lvscare"

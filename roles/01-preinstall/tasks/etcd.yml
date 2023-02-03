@@ -1,36 +1,34 @@
 # 3.4.10开始是必须0700权限,https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.4.md#breaking-changes
-- block:
-  - name: 安装 etcdctl 工具
-    copy:
-      src: "{{ cache_dir }}/binary/etcd/etcdctl"
-      dest: "/usr/bin/etcdctl"
-      owner: root
-      group: root
-      mode: 0755
+- name: 安装 etcdctl 工具
+  copy:
+    src: "{{ cache_dir }}/binary/etcd/etcdctl"
+    dest: "/usr/bin/etcdctl"
+    owner: root
+    group: root
+    mode: 0755
 
-  - name: 创建 etcd 数据备份目录
-    file:
-      path: "{{ item }}"
-      state: directory
-      recurse: yes
-    with_items:
-      - "{{ etcd_data_bak_dir }}"
+- name: 创建 etcd 数据备份目录
+  file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+  with_items:
+    - "{{ etcd_data_bak_dir }}"
 
-  - name: 配置 etcd 数据备份脚本
-    template:
-      src: "{{ item.src }}.j2"
-      dest: "{{ item.dest }}"
-      mode: "{{ item.mode }}"
-      owner: root
-      group: root
-    with_items:
-      - { src: "etcd.sh", dest: "{{ profile_dir }}/etcd.sh", mode: "u=rwx"}
-      - { src: "etcd_cron.sh", dest: "/usr/local/bin/etcd_cron.sh", mode: "u=rwx,g=rx,o=x" }
+- name: 配置 etcd 数据备份脚本
+  template:
+    src: "{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  with_items:
+    - { src: "etcd.sh", dest: "{{ profile_dir }}/etcd.sh", mode: "u=rwx"}
+    - { src: "etcd_cron.sh", dest: "/usr/local/bin/etcd_cron.sh", mode: "u=rwx,g=rx,o=x" }
 
-  - name: 设置 etcd 数据备份, 每天凌晨3点备份
-    cron:
-      name: "create etcd data backup"
-      minute: "0"
-      hour: "3"
-      job: "/usr/local/bin/etcd_cron.sh -c 4 -d {{ etcd_data_bak_dir }} &>/dev/null 2>&1"
-  when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'] | unique))"
+- name: 设置 etcd 数据备份, 每天凌晨3点备份
+  cron:
+    name: "create etcd data backup"
+    minute: "0"
+    hour: "3"
+    job: "/usr/local/bin/etcd_cron.sh -c 4 -d {{ etcd_data_bak_dir }} &>/dev/null 2>&1"

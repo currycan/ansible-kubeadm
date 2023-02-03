@@ -14,7 +14,7 @@
 
   - name: "升级剩余 master 节点： {{ inventory_hostname }} 至 v{{ kube_version }}"
     when:
-      - inventory_hostname in groups['kube_masters']
+      - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
       - inventory_hostname != groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
     shell: >-
       kubeadm upgrade node {% if kube_version.split('.')[1]|int == 14 %}experimental-control-plane{% endif %} \
@@ -22,10 +22,10 @@
       --ignore-preflight-errors=CoreDNSMigration
 
   - include_tasks: "{{ inventory_dir }}/roles/04-matser/tasks/check_master_status.yml"
-    when: inventory_hostname in groups['kube_masters']
+    when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
 
   - name: "升级 worker 节点： {{ inventory_hostname }} 至 v{{ kube_version }}"
-    when: inventory_hostname in groups['kube_nodes']
+    when: inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)
     shell: >
       kubeadm upgrade node {% if kube_version.split('.')[1]|int == 14 %}config --kubelet-version v{{ kube_version }}{% endif %} \
         --ignore-preflight-errors=CoreDNSUnsupportedPlugins \
@@ -46,4 +46,4 @@
       timeout: 300
     with_items:
       - "10248"
-  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']))
+  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)

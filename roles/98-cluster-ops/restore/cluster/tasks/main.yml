@@ -34,7 +34,9 @@
   - "{{ kubernetes_log_dir }}/kubelet"
 
 - name: restore kubernetes
+  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
   include_tasks: restore.yml
 
 - name: 普通用户配置集群访问权限
+  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
   include_tasks: "{{ inventory_dir }}/roles/04-matser/tasks/normal-user-admission.yml"

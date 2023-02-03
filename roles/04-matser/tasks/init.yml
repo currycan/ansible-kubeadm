@@ -1,5 +1,4 @@
 - name: 检查第一个 master 节点是否已经正常拉起
-  when: inventory_hostname == groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
   shell: >
     cs_running_num=0;
     for cs in {kube-apiserver,kube-controller-manager,kube-scheduler,etcd};
@@ -26,6 +25,17 @@
       group: "root"
       mode: 0644
 
+  - name: 添加 kube-apiserver 临时域名解析
+    blockinfile:
+      path: /etc/hosts
+      block: |-
+        {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} {{ kube_master_external_domain.split(',')[0] }}
+      mode: 0644
+      state: present
+      create: yes
+      backup: yes
+      marker: "# Ansible kube-apiserver temporary domain {mark}"
+
   # - pause:
   #     prompt: "暂停, 手动确认继续执行, 测试用。。。"
 
@@ -38,6 +48,7 @@
       rm -f {{ kubelet_data_dir }}/cpu_manager_state;
       rm -f {{ kubelet_data_dir }}/memory_manager_state;
       rm -f {{ manifest_dir }}/kube-*;
+      rm -f {{ manifest_dir }}/etcd.yaml;
       kubeadm init \
         {% if skip_kube_proxy | bool -%}
         --skip-phases=addon/kube-proxy \
@@ -54,6 +65,16 @@
 
   - include_tasks: check_master_status.yml
 
+  - name: 删除 kube-apiserver 临时域名解析
+    lineinfile :
+      path: /etc/hosts
+      state: absent
+      regexp: "{{ item }}"
+    with_items:
+      - "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} {{ kube_master_external_domain.split(',')[0] }}"
+      - "temporary"
+      - "^\n"
+
   - name: 确认 kube-vip 启动完成, 虚拟 IP 创建成功
     when: lb_mode == "kube-vip"
     # kubectl get po -n kube-system | grep kube-vip | cut -d' ' -f1 | xargs kubectl delete po -n kube-system;
@@ -65,5 +86,3 @@
     retries: 8
     delay: 15
   when: not first_master_already_running.stdout | bool
-  run_once: true
-  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"

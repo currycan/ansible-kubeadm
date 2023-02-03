@@ -21,7 +21,7 @@
 
 - name: "更新剩余 master 节点：{{ inventory_hostname }}"
   when:
-    - inventory_hostname in groups['kube_masters']
+    - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'] | unique))
     - inventory_hostname != (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first)
   command: >-
     kubeadm upgrade node {% if kube_version.split('.')[1]|int == 14 %}experimental-control-plane{% endif %} \
@@ -29,4 +29,4 @@
       --ignore-preflight-errors=CoreDNSMigration
 
 - include_tasks: "{{ inventory_dir }}/roles/04-matser/tasks/check_master_status.yml"
-  when: inventory_hostname in groups['kube_masters']
+  when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'] | unique))"

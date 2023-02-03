@@ -10,7 +10,4 @@
     with_items:
       # kube-vip
       - { src: "kube-vip/lb-kube-vip.yaml", dest: "{{ manifest_dir }}/lb-kube-vip.yaml", lb: "kube-vip" }
-  when:
-  - lb_mode == "kube-vip"
-  - groups['kube_masters'] | length > 1
-  - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
+  when: lb_mode == "kube-vip"

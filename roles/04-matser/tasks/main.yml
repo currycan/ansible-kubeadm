@@ -1,29 +1,64 @@
 - block:
   # 初始化第一个 master 节点
   - include_tasks: init.yml
+    when: inventory_hostname == groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
+
+  - name: 确认其他 master 节点是否已经加入集群
+    shell: >
+      joined_or_not=`kubectl get nodes | grep {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} | wc -l`;
+      if [ $joined_or_not -eq 1 ];then
+        echo true;
+      else
+        echo false;
+      fi
+    environment:
+      KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+    register: master_already_joined
+
+  - block:
+    # # 由于 etcd 是二进制安装, 因此需要加上配置： --config kubeadm-config.yaml
+    - name: 生成 master 节点 join token
+      shell: >
+        echo $(kubeadm token create --print-join-command --ttl=15m) --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+      environment:
+        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+      register: master_kubeadm_join_cmd
+
+    - name: 获取 kubeadm join 命令
+      set_fact:
+        master_kubeadm_join: "{{ master_kubeadm_join_cmd.stdout }}"
+
+    - debug: var=master_kubeadm_join
+    run_once: true
+    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+    # when:
+    #   - master_already_joined.stdout is defined
+    #   - not master_already_joined.stdout | bool
 
   # 加入其他 master 节点
   - include_tasks: join.yml
+    when:
+      - master_already_joined.stdout is defined
+      - not master_already_joined.stdout | bool
+      - inventory_hostname != groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
 
   - name: 更新证书 10 年有效期
+    when: inventory_hostname in groups['kube_masters'] | difference(groups['delete_masters']) | unique
     shell: >
       /usr/local/bin/update-kubeadm-cert.sh all
     environment:
       ENABLE_INIT: true
-  when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"
 
-- name: 获取 kubeconfig admin 文件
-  slurp:
-    src: "{{ item }}"
-  with_items:
-    - "{{ kubernetes_etc_dir }}/admin.conf"
-  register: slurp_kubeconfig
-  run_once: true
-  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+  - name: 获取 kubeconfig admin 文件
+    slurp:
+      src: "{{ item }}"
+    with_items:
+      - "{{ kubernetes_etc_dir }}/admin.conf"
+    register: slurp_kubeconfig
+    run_once: true
+    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
-- block:
   - name: 配置 kubeconfig admin 文件到 $HOME/.kube/config
-    when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
     copy:
       dest: "{{ ansible_env.HOME }}/.kube/config"
       content: "{{ item.content | b64decode }}"
@@ -44,14 +79,13 @@
       kubectl apply -f "{{ kubernetes_etc_dir }}/rbac"
     environment:
       KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
     run_once: true
+    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
   - include_tasks: kube-proxy.yml
   - include_tasks: coredns.yml
 
   - name: master 设置节点标签, 并设置污点（禁止调度）
-    when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
     shell: >
       {% if groups['kube_masters'] | length > 1 -%}
         kubectl taint node {{ inventory_hostname }} node-role.kubernetes.io/master=true:NoSchedule --overwrite;
@@ -68,4 +102,4 @@
 
   - name: 普通用户配置集群访问权限
     include_tasks: normal-user-admission.yml
-  when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"
+  when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)"

@@ -25,9 +25,9 @@
 
   - name: 获取 kubeadm join 命令
     set_fact:
-      kubeadm_join: "{{ worker_kubeadm_join_cmd.stdout }}"
+      worker_kubeadm_join: "{{ worker_kubeadm_join_cmd.stdout }}"
 
-  - debug: var=kubeadm_join
+  - debug: var=worker_kubeadm_join
   run_once: true
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
   when:
@@ -42,7 +42,7 @@
   - name: worker 节点加入集群
     shell: >
       timeout -k 240s 240s;
-      {{ kubeadm_join }} \
+      {{ worker_kubeadm_join }} \
         --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
         --ignore-preflight-errors=all \
         --v=5
