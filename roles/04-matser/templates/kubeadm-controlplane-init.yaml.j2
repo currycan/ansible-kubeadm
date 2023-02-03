@@ -63,9 +63,6 @@ dns:
 {% endif %}
 etcd:
   local:
-    caFile: "{{ etcd_pki_dir }}/ca.crt"
-    certFile: "{{ etcd_pki_dir }}/apiserver-etcd-client.crt"
-    keyFile: "{{ etcd_pki_dir }}/apiserver-etcd-client.key"
     serverCertSANs:
     - localhost
     - 127.0.0.1
@@ -230,7 +227,6 @@ cpuManagerReconcilePeriod: 10s
 enableContentionProfiling: true
 enableControllerAttachDetach: true
 enableDebuggingHandlers: true
-enableSystemLogHandler: true
 # Node 资源驱逐策略
 evictionHard:
   imagefs.available: "15%"

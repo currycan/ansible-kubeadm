@@ -6,16 +6,25 @@
 - debug: msg="其他 master 节点加入集群, 可能需要一定时间。。"
 - name: 其他 master 节点加入集群
   shell: >
-    timeout -k 240s 240s;
     systemctl stop kubelet.service;
     rm -f {{ kubelet_data_dir }}/cpu_manager_state;
     rm -f {{ kubelet_data_dir }}/memory_manager_state;
     rm -f {{ manifest_dir }}/kube-*;
     rm -f {{ manifest_dir }}/etcd.yaml;
-    {{ master_kubeadm_join }} --control-plane \
+    timeout -k 3m 3m {{ master_kubeadm_join }} \
+      --control-plane \
       --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
       --ignore-preflight-errors=all \
       --v=5
   register: master_join_rslt
+  ignore_errors: true
+
+- debug:
+    var: master_join_rslt.stdout_lines
+
+- name: 其他 master 节点 join 是否成功
+  assert:
+    that: master_join_rslt is succeeded
+    msg: "节点：{{ inventory_hostname }} kubeadm join 失败"
 
 - include_tasks: check_master_status.yml

@@ -24,11 +24,12 @@
         KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
       register: master_kubeadm_join_cmd
 
+    - debug:
+        var: master_kubeadm_join_cmd.stdout_lines
+
     - name: 获取 kubeadm join 命令
       set_fact:
         master_kubeadm_join: "{{ master_kubeadm_join_cmd.stdout }}"
-
-    - debug: var=master_kubeadm_join
     run_once: true
     delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
     # when:

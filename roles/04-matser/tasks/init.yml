@@ -43,13 +43,12 @@
   - debug: msg="初始化第一个 master 节点, 可能需要一定时间。。"
   - name: 初始化第一个 master 节点
     shell: >
-      timeout -k 240s 240s;
       systemctl stop kubelet.service;
       rm -f {{ kubelet_data_dir }}/cpu_manager_state;
       rm -f {{ kubelet_data_dir }}/memory_manager_state;
       rm -f {{ manifest_dir }}/kube-*;
       rm -f {{ manifest_dir }}/etcd.yaml;
-      kubeadm init \
+      timeout -k 3m 3m kubeadm init \
         {% if skip_kube_proxy | bool -%}
         --skip-phases=addon/kube-proxy \
         {% endif -%}
@@ -58,10 +57,19 @@
         {% endif -%}
         --ignore-preflight-errors=ImagePull \
         --config={{ kubernetes_etc_dir }}/kubeadm-config.yaml --upload-certs --v=5
-    register: init_rslt
-    # until: init_rslt.rc == 0
+    register: init_first_master_rslt
+    # until: init_first_master.rc == 0
     # retries: 3
     # delay: "{{ retry_stagger | random + 2 }}"
+    ignore_errors: true
+
+  - debug:
+      var: init_first_master_rslt.stdout_lines
+
+  - name: 校验初始化第一个 master 节点是否成功
+    assert:
+      that: init_first_master_rslt is succeeded
+      msg: "节点：{{ inventory_hostname }} kubeadm int 失败"
 
   - include_tasks: check_master_status.yml
 

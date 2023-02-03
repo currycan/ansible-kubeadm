@@ -23,16 +23,17 @@
       KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
     register: worker_kubeadm_join_cmd
 
+  - debug:
+      var: worker_kubeadm_join_cmd.stdout_lines
+
   - name: 获取 kubeadm join 命令
     set_fact:
       worker_kubeadm_join: "{{ worker_kubeadm_join_cmd.stdout }}"
-
-  - debug: var=worker_kubeadm_join
   run_once: true
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
-  when:
-    - worker_already_joined.stdout is defined
-    - not worker_already_joined.stdout | bool
+  # when:
+  #   - worker_already_joined.stdout is defined
+  #   - not worker_already_joined.stdout | bool
 
 - block:
   # - pause:
@@ -41,11 +42,20 @@
   - debug: msg="worker 节点加入集群, 可能需要一定时间。。"
   - name: worker 节点加入集群
     shell: >
-      timeout -k 240s 240s;
-      {{ worker_kubeadm_join }} \
+      timeout -k 3m 3m {{ worker_kubeadm_join }} \
         --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
         --ignore-preflight-errors=all \
         --v=5
+    register: worker_join_rslt
+    ignore_errors: true
+
+  - debug:
+      var: worker_join_rslt.stdout_lines
+
+  - name: 其他 worker 节点 join 是否成功
+    assert:
+      that: worker_join_rslt is succeeded
+      msg: "节点：{{ inventory_hostname }} kubeadm join 失败"
 
   - name: 允许 worker 节点被调度, 设置节点标签
     when: inventory_hostname in groups['kube_nodes']
