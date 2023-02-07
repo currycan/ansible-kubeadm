@@ -104,5 +104,5 @@
     with_items:
     - renewal
     - user
-    - "{{ addons_dir }}"
+    - addons
   when: not first_master_already_running.stdout | bool
