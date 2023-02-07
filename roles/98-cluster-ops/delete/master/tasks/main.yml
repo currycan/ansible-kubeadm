@@ -4,12 +4,6 @@
     that: (groups['delete_masters'] | unique)|length > 0
     msg: " 未配置删除 master 节点!"
 
-- name: 校验 master 节点数量
-  run_once: true
-  assert:
-    that: groups['kube_masters']|length > 1
-    msg: "Master 节点数量大于 1 才可进行 master 节点移除操作。"
-
 - name: 校验将被移除的 master 节点是否在原 master 组中
   run_once: true
   assert:
@@ -20,14 +14,14 @@
 - name: 校验现有 master 节点数量
   run_once: true
   assert:
-    that: groups['kube_masters']|length > 1
+    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) > 1
     msg: "Master 节点数量大于 1 才可进行 master 节点移除操作。"
 
 - name: 校验移除 master 节点后剩余 master 节点数量
   run_once: true
   assert:
-    that: "{{ (groups['kube_masters'] | difference(groups['delete_masters'])| unique)|length >= 1 }}"
-    msg: "移除 master 节点后, 剩余 master 节点数量应大于等于 1。"
+    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) is odd
+    msg: "移除 master 节点后, 剩余 master 节点只能为奇数个, 当前 {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | length }} 个, 请修改 master 节点数量至奇数个。"
 
 - name: 刷新集群 master 节点状态
   failed_when: false
@@ -40,9 +34,10 @@
     name: "{{ item }}"
     state: absent
   with_items:
-  - "{{ manifest_dir }}"
-  - "{{ lb_config_dir }}"
   - "{{ k8s_pki_dir }}"
+  - "{{ manifest_dir }}kube-apiserver.yaml"
+  - "{{ manifest_dir }}kube-scheduler.yaml"
+  - "{{ manifest_dir }}kube-controller-manager.yaml"
   - "{{ kubernetes_etc_dir }}/admin.conf"
   - "{{ kubernetes_etc_dir }}/controller-manager.conf"
   - "{{ kubernetes_etc_dir }}/scheduler.conf"
@@ -95,7 +90,6 @@
     mode: 0644
   with_items:
   - "{{ k8s_pki_dir }}"
-  - "{{ manifest_dir }}"
 
 - name: 恢复 kubernetes ca 证书
   copy:

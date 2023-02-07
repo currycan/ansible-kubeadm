@@ -26,6 +26,7 @@
       mode: 0644
 
   - name: 添加 kube-apiserver 临时域名解析
+    when: lb_mode == "slb"
     blockinfile:
       path: /etc/hosts
       block: |-
@@ -48,7 +49,7 @@
       rm -f {{ kubelet_data_dir }}/memory_manager_state;
       rm -f {{ manifest_dir }}/kube-*;
       rm -f {{ manifest_dir }}/etcd.yaml;
-      timeout -k 3m 3m kubeadm init \
+      timeout -k 10s 5m kubeadm init \
         {% if skip_kube_proxy | bool -%}
         --skip-phases=addon/kube-proxy \
         {% endif -%}
@@ -58,7 +59,7 @@
         --ignore-preflight-errors=ImagePull \
         --config={{ kubernetes_etc_dir }}/kubeadm-config.yaml --upload-certs --v=5
     register: init_first_master_rslt
-    # until: init_first_master.rc == 0
+    # until: init_first_master_rslt.rc == 0
     # retries: 3
     # delay: "{{ retry_stagger | random + 2 }}"
     ignore_errors: true
@@ -74,6 +75,7 @@
   - include_tasks: check_master_status.yml
 
   - name: 删除 kube-apiserver 临时域名解析
+    when: lb_mode == "slb"
     lineinfile :
       path: /etc/hosts
       state: absent
@@ -93,4 +95,14 @@
     until: lb_status.rc == 0
     retries: 8
     delay: 15
+
+  - name: 授权 kubelet 自动轮换服务端证书、集群管理用户和安装集群基础依赖组件(如:coreDns、kube-proxy等)
+    shell: >
+      kubectl apply -R -f "{{ kubernetes_etc_dir }}/{{ item }}"
+    environment:
+      KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+    with_items:
+    - renewal
+    - user
+    - "{{ addons_dir }}"
   when: not first_master_already_running.stdout | bool

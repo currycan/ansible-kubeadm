@@ -18,7 +18,13 @@
   # # 由于 etcd 是二进制安装, 因此需要加上配置： --config kubeadm-config.yaml
   - name: 生成 worker 节点 join token
     shell: >
-      echo $(kubeadm token create --print-join-command --ttl=15m) --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+      if [ `kubeadm token list | grep {{ bootstrap_token | default('abcdef.0123456789abcdef') }} | wc -l` -eq 1 ];then
+        echo $(kubeadm token create --print-join-command --ttl=15m --dry-run | grep join | sed "s/--token\s.*\s--discovery/--token {{ bootstrap_token | default('abcdef.0123456789abcdef') }} --discovery/g") \
+        --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+      else
+        echo $(kubeadm token create --print-join-command --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml) \
+          --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+      fi
     environment:
       KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
     register: worker_kubeadm_join_cmd
@@ -31,9 +37,6 @@
       worker_kubeadm_join: "{{ worker_kubeadm_join_cmd.stdout }}"
   run_once: true
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
-  # when:
-  #   - worker_already_joined.stdout is defined
-  #   - not worker_already_joined.stdout | bool
 
 - block:
   # - pause:
@@ -42,7 +45,7 @@
   - debug: msg="worker 节点加入集群, 可能需要一定时间。。"
   - name: worker 节点加入集群
     shell: >
-      timeout -k 3m 3m {{ worker_kubeadm_join }} \
+      timeout -k 10s 5m {{ worker_kubeadm_join }} \
         --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
         --ignore-preflight-errors=all \
         --v=5

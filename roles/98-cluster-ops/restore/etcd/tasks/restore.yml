@@ -70,20 +70,6 @@
       remote_src: yes
       mode: 0644
 
-  - name: 恢复 etcd profile 文件
-    copy:
-      src: "{{ kubernetes_etc_dir }}/backup-etcd/profile/"
-      dest: "{{ profile_dir }}"
-      mode: 0755
-      remote_src: yes
-
-  - name: 恢复 etcd script 文件
-    copy:
-      src: "{{ kubernetes_etc_dir }}/backup-etcd/script/"
-      dest: "/usr/local/bin/"
-      mode: 0755
-      remote_src: yes
-
   - name: 恢复 etcd 证书文件
     copy:
       src: "{{ kubernetes_etc_dir }}/backup-etcd/pki/"
@@ -99,6 +85,26 @@
       --initial-cluster={% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) %}{{ hostvars[host].ansible_hostname | lower }}=https://{{ hostvars[host]['ansible_' + iface].ipv4.address }}:2380{% if not loop.last %},{% endif %}{% endfor %} \
       --initial-advertise-peer-urls=https://{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2380 \
       --data-dir={{ etcd_data_dir }}
+
+  - name: 确保 kubelet 除临时配置外, 暂无其他配置
+    file:
+      name: "{{ item }}"
+      state: absent
+    with_items:
+      - "{{ systemd_service_dir }}/kubelet.service.d/00-kubeadm.conf"
+      - "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf"
+      - "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf"
+
+  - name: 渲染临时 kubelet 启动文件
+    template:
+      src: "{{ inventory_dir }}/roles/04-lb/templates/{{ item.src }}.j2"
+      dest: "{{ item.dest }}"
+      owner: "root"
+      group: "root"
+      mode: "0644"
+    with_items:
+      - { src: "kubelet/99-kubelet-override.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/99-kubelet-override.conf" }
+      - { src: "kubelet/kubelet-override-config.yml", dest: "{{ kubelet_data_dir }}/config.yaml" }
 
   - name: 启动 kubelet
     systemd:
@@ -135,4 +141,21 @@
     file:
       name: "{{ kubernetes_etc_dir }}/backup-etcd/etcd-snapshot-latest.db"
       state: absent
+
+  - name: 停止 kubelet
+    systemd:
+      name: kubelet
+      daemon_reload: yes
+      state: stopped
+      enabled: yes
+
+  - name: 移除 kubelet 临时配置文件
+    file:
+      name: "{{ item }}"
+      state: absent
+    with_items:
+      - "{{ systemd_service_dir }}/kubelet.service.d/99-kubelet-override.conf"
+      - "{{ kubelet_data_dir }}/config.yaml"
+      - "{{ kubelet_data_dir }}/cpu_manager_state"
+      - "{{ kubelet_data_dir }}/memory_manager_state"
   when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)

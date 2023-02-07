@@ -1,7 +1,21 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: drainer-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cs:drainer
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: "drainer"
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: drain-node
+  name: cs:drainer
 rules:
   - apiGroups:
       - extensions

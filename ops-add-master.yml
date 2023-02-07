@@ -23,3 +23,4 @@
   - kube_cluster
   roles:
   - 04-windup
+  - 98-cluster-ops/update-etcd

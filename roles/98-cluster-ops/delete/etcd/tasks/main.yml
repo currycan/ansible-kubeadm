@@ -20,14 +20,14 @@
 - name: 校验现有 etcd 节点数量
   run_once: true
   assert:
-    that: groups['kube_masters']|length > 1
+    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) > 1
     msg: "Etcd 节点数量大于 1 才可进行 etcd 节点移除操作。"
 
 - name: 校验移除 etcd 节点后剩余 etcd 节点数量
   run_once: true
   assert:
-    that: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique)|length >= 1 }}"
-    msg: "移除 etcd 节点后, 剩余 etcd 节点数量应大于等于 1。"
+    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) is odd
+    msg: "移除 etcd 节点后, 剩余 etcd 节点只能为奇数个, 当前 {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | length }} 个, 请修改 etcd 节点数量至奇数个。"
 
 - name: 获取将要移除的 etcd 节点 member id
   changed_when: true
@@ -63,34 +63,19 @@
     executable: /bin/bash
   delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
 
-- name: 停止运行 etcd
-  systemd:
-    name: etcd
-    state: stopped
-    enabled: no
-  register: stop_etcd_result
-  failed_when: stop_etcd_result.failed
-
-- name: 删除所有 etcd 证书及相关配置
+- name: 删除所有 etcd 数据、证书及相关配置
   file:
     path: "{{ item }}"
     state: absent
   with_items:
     - "{{ etcd_data_dir }}"
-    - "{{ etcd_config_dir }}"
+    # - "{{ etcd_config_dir }}"
     - "{{ etcd_data_bak_dir }}"
     - "{{ etcd_pki_dir }}"
+    - "{{ manifest_dir }}etcd.yaml"
     - "/usr/local/bin/etcd_cron.sh"
     - "{{ systemd_service_dir }}/etcd.service"
     - "{{ profile_dir }}/etcd.sh"
-
-- name: 删除所有 etcd ca 证书
-  when: inventory_hostname not in groups['kube_masters']
-  file:
-    path: "{{ item }}"
-    state: absent
-  with_items:
-  - "{{ etcd_pki_dir }}/ca.crt"
 
 - name: 删除 etcd 数据备份 crontab 任务
   cron:

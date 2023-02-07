@@ -11,7 +11,7 @@
     rm -f {{ kubelet_data_dir }}/memory_manager_state;
     rm -f {{ manifest_dir }}/kube-*;
     rm -f {{ manifest_dir }}/etcd.yaml;
-    timeout -k 3m 3m {{ master_kubeadm_join }} \
+    timeout -k 10s 5m {{ master_kubeadm_join }} \
       --control-plane \
       --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
       --ignore-preflight-errors=all \

@@ -7,7 +7,7 @@
     with_items:
     # - "{{ kubernetes_etc_dir }}/backup-etcd/service"
     - "{{ kubernetes_etc_dir }}/backup-etcd/profile"
-    - "{{ kubernetes_etc_dir }}/backup-etcd/script"
+    - "{{ kubernetes_etc_dir }}/backup-etcd/manifests"
     - "{{ kubernetes_etc_dir }}/backup-etcd/pki"
     # - "{{ kubernetes_etc_dir }}/backup-etcd/config"
     - "{{ kubernetes_etc_dir }}/backup-etcd/data"
@@ -19,19 +19,14 @@
   #     mode: 0644
   #     remote_src: yes
 
-  - name: 备份 etcd profile 文件
+  - name: 备份 manifests etcd.yaml 文件
     copy:
-      src: "{{ profile_dir }}/etcd.sh"
-      dest: "{{ kubernetes_etc_dir }}/backup-etcd/profile"
-      mode: 0755
+      src: "{{ item }}"
+      dest: "{{ kubernetes_etc_dir }}/backup-etcd/manifests"
+      mode: 0644
       remote_src: yes
-
-  - name: 备份 etcd script 文件
-    copy:
-      src: "/usr/local/bin/etcd_cron.sh"
-      dest: "{{ kubernetes_etc_dir }}/backup-etcd/script"
-      mode: 0755
-      remote_src: yes
+    with_items:
+      - "{{ manifest_dir }}/etcd.yaml"
 
   - name: 备份 etcd 证书文件
     copy:

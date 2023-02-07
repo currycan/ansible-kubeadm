@@ -1,0 +1,10 @@
+- name: etcd 节点配置更新
+  template:
+    src: "{{ inventory_dir }}/roles/01-preinstall/templates/{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  with_items:
+    - { src: "etcd.sh", dest: "{{ profile_dir }}/etcd.sh", mode: "u=rwx"}
+    - { src: "etcd_cron.sh", dest: "/usr/local/bin/etcd_cron.sh", mode: "u=rwx,g=rx,o=x" }

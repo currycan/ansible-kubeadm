@@ -36,9 +36,6 @@
     marker: "# Ansible kube-apiserver domain {mark}"
 
 - name: 所有 kube_cluster 节点渲染 kubelet.service.d 配置文件
-  when:
-    - groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique | length == 1
-    - lb_mode == "kube-vip"
   template:
     src: "{{ item.src }}.j2"
     dest: "{{ item.dest }}"

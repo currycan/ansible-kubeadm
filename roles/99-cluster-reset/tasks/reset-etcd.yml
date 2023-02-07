@@ -3,6 +3,7 @@
   with_items:
     - "{{ etcd_data_bak_dir }}"
     - "{{ etcd_pki_dir }}"
+    - "{{ profile_dir }}/etcd.sh"
     - "/usr/local/bin/etcd_cron.sh"
 
 - name: 删除 etcd 数据备份 crontab 任务

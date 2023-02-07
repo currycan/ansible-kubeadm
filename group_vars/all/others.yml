@@ -13,3 +13,6 @@ proxy_env:
   https_proxy: "http://{{ proxy_user }}:{{ proxy_passwd }}@{{ proxy_server }}"
   # no proxy
   no_proxy: "{{ no_proxy }}"
+
+drain_grace_period: 300
+drain_timeout: 360s

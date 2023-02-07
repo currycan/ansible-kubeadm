@@ -41,7 +41,7 @@ apiserver_disable_admission_plugins: []
 apiserver_extra_args:
   allow-privileged: "true"
   # alsologtostderr: "true"
-  apiserver-count: "{{ (groups['kube_masters']| difference(groups['delete_masters'])) | unique | length }}"
+  apiserver-count: "{{ (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length }}"
   api-audiences: "api,istio-ca"
   audit-log-path: "{{ kubernetes_log_dir }}/audit/apiserver_audit.log"
   audit-log-maxage: "30"

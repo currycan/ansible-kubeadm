@@ -281,10 +281,9 @@ kubeReservedCgroup: "/kube.slice"  # 指定 kube 资源预留的 cgroup
 systemReserved:
 {% if inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
   cpu: 400m
-  memory: 1.2Gi
-{% else %}
-  cpu: 200m
-  memory: 1Gi
+  memory: 512Mi
+{% else %}  cpu: 200m
+  memory: 256Mi
 {% endif %}
   ephemeral-storage: "1Gi"
 systemReservedCgroup: "/system.slice"  # 指定 system 资源预留的

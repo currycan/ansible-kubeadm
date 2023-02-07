@@ -29,6 +29,12 @@
   gather_facts: false
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   roles:
+  - 00-kernel
+  - 00-check-environment
+  - 01-chrony
+  - 01-initialize
+  - 01-preinstall
   - 02-container-runtime
+  - 03-image
   - 98-cluster-ops/restore/etcd
   - 98-cluster-ops/restore/cluster

@@ -1,53 +1,45 @@
-- name: 校验删除 node 节点数量
+- name: 校验 worker 节点数量
   run_once: true
   assert:
-    that: (groups['delete_nodes'] | unique)|length > 0
-    msg: " 未配置删除 node 节点!"
+    that: groups['kube_nodes'] | length > 1
+    msg: "Worker 节点数量大于 1 才可进行 worker 节点移除操作。"
 
-- name: 获取集群 daemonsets pod 数量
-  changed_when: true
-  shell: >
-    set -o pipefail;
-    kubectl get ds -A | grep -v NAMESPACE | wc -l
-  register: ds_pods_num
-  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+- name: 校验将被移除的 worker 节点是否在原 worker 组中
   run_once: true
+  assert:
+    that: "{{ item in groups['kube_nodes'] }}"
+    msg: "当前节点: {{ item }}，并未在 kube_nodes 组中，不需要进行移除操作。"
+  with_items: "{{ groups['delete_nodes'] }}"
 
-- name: master_static_pods
-  set_fact: master_static_pods={{ ds_pods_num.stdout | int + 5 }}
+- name: 校验移除 worker 节点后剩余 worker 节点数量
+  run_once: true
+  assert:
+    that: "{{ (groups['kube_nodes'] | difference(groups['delete_nodes']))|length >= 1 }}"
+    msg: "移除 worker 节点后，剩余 worker 节点数量应大于等于 1。"
 
 - name: 将节点设置为维护者模式并排空节点
   changed_when: true
   shell: >
-    kubectl cordon {% if hostvars['' + item]['ansible_host'] is defined %}{{ hostvars['' + item]['ansible_host'] }}{% else %}{{ inventory_hostname }}{% endif %};
-    kubectl drain {% if hostvars['' + item]['ansible_host'] is defined %}{{ hostvars['' + item]['ansible_host'] }}{% else %}{{ inventory_hostname }}{% endif %} \
-    --ignore-daemonsets --force --delete-local-data
-  with_items: "{{ groups['delete_nodes'] }}"
+    kubectl cordon {{ inventory_hostname }};
+    kubectl drain {{ inventory_hostname }} \
+      --ignore-daemonsets \
+      --force \
+      --delete-local-data \
+      --grace-period {{ drain_grace_period }} \
+      --timeout {{ drain_timeout }}
   register: set_drain
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
   until: set_drain.rc == 0
-  retries: 10
-  delay: "{{ retry_stagger }}"
-  ignore_errors: true
-
-- name: 等待节点排空完成
-  changed_when: true
-  shell: >
-    kubectl describe nodes {% if hostvars[inventory_hostname]['ansible_host'] is defined %}{{ hostvars[inventory_hostname]['ansible_host'] }}{% else %}{{ inventory_hostname }}{% endif %} \
-    | grep 'Non-terminated Pods' | tr -cd "[0-9]"
-  register: drain_nodes_rslt
-  until: drain_nodes_rslt.stdout == master_static_pods
-  retries: 10
+  retries: 2
   delay: "{{ retry_stagger }}"
   ignore_errors: true
 
 - name: 将节点资源从集群中删除
   changed_when: true
   shell: >
-    kubectl delete nodes {% if hostvars['' + item]['ansible_host'] is defined %}{{ hostvars['' + item]['ansible_host'] }}{% else %}{{ inventory_hostname }}{% endif %}
-  with_items: "{{ groups['delete_nodes'] }}"
+    kubectl delete nodes {{ inventory_hostname }}
   register: delete_node
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
   until: delete_node.rc == 0
-  retries: 10
+  retries: 5
   delay: "{{ retry_stagger }}"

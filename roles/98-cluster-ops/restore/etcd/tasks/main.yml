@@ -3,7 +3,7 @@
   with_items:
     - "{{ etcd_data_dir }}"
 
-- name: 创建 etcd 安装config目录和数据备份目录
+- name: 创建 etcd 数据备份目录
   file:
     path: "{{ item }}"
     recurse: yes
