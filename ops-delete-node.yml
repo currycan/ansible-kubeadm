@@ -3,7 +3,7 @@
   - delete_nodes
   become: true
   serial: 1
-  gather_facts: false
+  gather_facts: true
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   roles:
   - { role: 98-cluster-ops/delete/node }

@@ -14,7 +14,7 @@
 
 - hosts: kube_masters
   become: true
-  gather_facts: false
+  gather_facts: true
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   roles:
   - { role: 99-cluster-reset, reset_etcd: true }

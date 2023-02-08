@@ -2,7 +2,7 @@
   - kube_cluster
   become: true
   serial: 1
-  gather_facts: false
+  gather_facts: true
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   vars:
     kube_version: "1.19.16"

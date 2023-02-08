@@ -1,3 +1,6 @@
+# certificates expired time
+certs_expired: 365000
+
 # etcd certificates
 etcd_ca: "{{ etcd_pki_dir }}/ca.crt"
 etcd_ca_key: "{{ etcd_pki_dir }}/ca.key"
@@ -27,3 +30,12 @@ admin: "{{ k8s_pki_dir }}/admin.crt"
 admin_key: "{{ k8s_pki_dir }}/admin.key"
 sa_public_key: "{{ k8s_pki_dir }}/sa.pub"
 sa_private_key: "{{ k8s_pki_dir }}/sa.key"
+
+kube_config:
+  cluster_name: "{{ cluster_name }}"
+  contexts:
+  - name: system:bootstrappers:default-node-token
+    context: system:bootstrappers:default-node-token@kubernetes
+    ca: "{{ kubernetes_ca }}"
+    token: "{{ bootstrap_token | default('abcdef.0123456789abcdef') }}"
+    path: "{{ kubernetes_etc_dir }}/bootstrap-kubelet.conf"
