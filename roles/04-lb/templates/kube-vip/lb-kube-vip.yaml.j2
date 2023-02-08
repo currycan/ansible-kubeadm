@@ -12,8 +12,8 @@ spec:
       value: "true"
     - name: port
       value: "6443"
-    - name: vip_interface
-      value: "{% if vip_interface != '' %}{{ vip_interface }}{% else %}{{ ansible_default_ipv4.interface }}{% endif %}"
+    - name: iface
+      value: "{% if iface != '' %}{{ iface }}{% else %}{{ ansible_default_ipv4.interface }}{% endif %}"
     - name: vip_cidr
       value: "32"
     - name: cp_enable

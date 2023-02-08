@@ -25,6 +25,7 @@
     state: absent
   with_items:
     - "{{ kubernetes_etc_dir }}"
+    - "{{ ansible_env.HOME }}/.kube/config"
     - "{{ cni_etc_dir }}"
     - "{{ kubernetes_log_dir }}"
     - "{{ systemd_service_dir }}/kubelet.service.d/"

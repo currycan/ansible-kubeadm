@@ -35,9 +35,9 @@
     state: absent
   with_items:
   - "{{ k8s_pki_dir }}"
-  - "{{ manifest_dir }}kube-apiserver.yaml"
-  - "{{ manifest_dir }}kube-scheduler.yaml"
-  - "{{ manifest_dir }}kube-controller-manager.yaml"
+  - "{{ manifest_dir }}/kube-apiserver.yaml"
+  - "{{ manifest_dir }}/kube-scheduler.yaml"
+  - "{{ manifest_dir }}/kube-controller-manager.yaml"
   - "{{ kubernetes_etc_dir }}/admin.conf"
   - "{{ kubernetes_etc_dir }}/controller-manager.conf"
   - "{{ kubernetes_etc_dir }}/scheduler.conf"
@@ -46,6 +46,7 @@
   - "{{ kubernetes_log_dir }}/kube-apiserver"
   - "{{ kubernetes_log_dir }}/kube-controller-manager"
   - "{{ kubernetes_log_dir }}/kube-scheduler"
+  - "{{ ansible_env.HOME }}/.kube/config"
 
 - name: 取消节点原有 master 角色标签
   failed_when: false

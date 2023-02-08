@@ -68,6 +68,7 @@
     path: "{{ item }}"
     state: absent
   with_items:
+    - "{{ manifest_dir }}/etcd.yaml"
     - "{{ etcd_data_dir }}"
     # - "{{ etcd_config_dir }}"
     - "{{ etcd_data_bak_dir }}"
