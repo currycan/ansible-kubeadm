@@ -8,11 +8,10 @@
   with_items:
     - { src: "{{ cache_dir }}/binary/docker/", dest: "/usr/bin/"}
 
-- name: 安装 docker 命令补全工具和 docker-tag 工具
+- name: 安装 docker 命令补全工具
   copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     mode: "{{ item.mode }}"
   with_items:
     - { src: "docker", dest: "/etc/bash_completion.d/", mode: "0644" }
-    - { src: "docker-tag", dest: "/usr/local/bin", mode: "0755" }

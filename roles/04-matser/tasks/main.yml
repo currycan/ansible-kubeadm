@@ -42,6 +42,16 @@
   run_once: true
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
+- name: 分发 bootstrap-kubelet.conf 文件到其他 master 节点
+  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
+  copy:
+    src: "{{ kubernetes_etc_dir }}/bootstrap-kubelet.conf"
+    dest: "{{ kubernetes_etc_dir }}/bootstrap-kubelet.conf"
+    owner: root
+    group: root
+    mode: 0600
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+
 - name: 其他 master 节点加入集群
   include_tasks: join.yml
   when:

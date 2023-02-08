@@ -45,8 +45,7 @@
     assert:
       that: lb_apiserver_ip != "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}"
       msg: "lb_apiserver_ip 不能设置为集群节点的 IP。"
-  when:
-  - groups['kube_masters'] | length > 1
+  when: groups['kube_masters'] | difference(groups['delete_masters']) | unique | length > 1
 
 - name: 校验 k8s 版本和container runtime 关联, 默认 1.24+ 版本废弃 docker 只能使用 containerd
   when: kube_version is version('1.24.0', '>=')

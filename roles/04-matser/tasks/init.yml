@@ -25,6 +25,25 @@
       group: "root"
       mode: 0644
 
+  - name: 第一个 master 节点手动生成 {{ certs_expired }} 过期时间证书
+    shell: >
+      mkdir -p {{ etcd_pki_dir }};
+      openssl req -x509 -sha256 -newkey rsa:2048 \
+        -keyout {{ kubernetes_ca_key }} \
+        -out {{ kubernetes_ca }} \
+        -days {{ certs_expired }} \
+        -nodes -subj '/CN=kubernetes-ca';
+      openssl req -x509 -sha256 -newkey rsa:2048 \
+        -keyout {{ front_ca_key }} \
+        -out {{ front_ca }} \
+        -days {{ certs_expired }} \
+        -nodes -subj '/CN=kubernetes-front-proxy-ca';
+      openssl req -x509 -sha256 -newkey rsa:2048 \
+        -keyout {{ etcd_ca_key }} \
+        -out {{ etcd_ca }} \
+        -days {{ certs_expired }} \
+        -nodes -subj '/CN=etcd-ca';
+
   - name: 添加 kube-apiserver 临时域名解析
     when: lb_mode == "slb"
     blockinfile:
@@ -105,4 +124,15 @@
     - renewal
     - user
     - addons
+
+  - name: 判断 kubelet bootstrappers kubeconfig 文件是否存在
+    stat:
+      path: "{{ item.path }}"
+    with_items: "{{ kube_config.contexts }}"
+    register: check_kubeconfig_files
+
+  - name: 创建 kubelet bootstrappers kubeconfig 文件
+    when: not item.stat.exists
+    include_tasks: "kubeconfig.yml"
+    with_items: "{{ kubeconfig_files['results'] }}":q
   when: not first_master_already_running.stdout | bool

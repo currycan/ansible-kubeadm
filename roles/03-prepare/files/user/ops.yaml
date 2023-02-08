@@ -1,3 +1,8 @@
+# 为在 appdevs 组的 johndoe 用户创建一个有效期为 24 小时的 kubeconfig 文件
+# kubeadm kubeconfig user --config /etc/kubernetes/kubeadm-config.yaml --org appdevs --client-name johndoe --validity-period 24h > test.yaml
+
+# 为管理员创建一个有效期有一周的 kubeconfig 文件
+# kubeadm kubeconfig user --config /etc/kubernetes/kubeadm-config.yaml --client-name admin --validity-period 168h
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

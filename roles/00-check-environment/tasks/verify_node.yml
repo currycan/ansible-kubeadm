@@ -54,8 +54,7 @@
   assert:
     that: ansible_memtotal_mb >= 2*1024*0.85
     msg: "Master节点: {{ inventory_hostname }} 内存期望不小于2G, 实际获取: {{ ansible_memtotal_mb }}MB, 安装需求校验不通过。"
-  when:
-    - "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"
+  when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
 
 # - name: 校验 worker 节点内存
 #   assert:
@@ -70,7 +69,7 @@
     that: ansible_processor_vcpus >= 2
     msg: "Master节点: {{ inventory_hostname }} CPU核数期望不小于2C, 实际获取: {{ ansible_memtotal_mb }}C, 安装需求校验不通过。"
   when:
-    - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))
+    - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
     - groups['kube_cluster']|length != 1
 
 - name: 校验 worker 节点CPU核数
