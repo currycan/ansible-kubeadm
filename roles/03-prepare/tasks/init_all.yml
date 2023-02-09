@@ -29,7 +29,7 @@
     group: "root"
     mode: "0644"
   with_items:
-    - { src: "kubelet/00-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-kubeadm.conf" }
+    - { src: "kubelet/10-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/10-kubeadm.conf" }
     - { src: "kubelet/00-container-runtime.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf" }
     - { src: "kubelet/00-cgroup.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf" }
 

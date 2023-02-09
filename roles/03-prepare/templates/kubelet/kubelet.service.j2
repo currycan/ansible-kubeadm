@@ -13,7 +13,7 @@ User=root
 WorkingDirectory={{ kubelet_data_dir }}
 
 ExecStart=/usr/bin/kubelet
-ExecStartPre=/bin/bash /usr/bin/kubelet-pre-start.sh
+ExecStartPre=/bin/bash /usr/local/bin/kubelet-pre-start.sh
 
 Restart=always
 StartLimitInterval=0

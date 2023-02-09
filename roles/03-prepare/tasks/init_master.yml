@@ -40,7 +40,7 @@
     dest: "{{ kubernetes_etc_dir }}"
     mode: 0644
   with_items:
-    - renewal
+    - csr
     - user
 
 - name: 配置 coredns

@@ -121,18 +121,18 @@
     environment:
       KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
     with_items:
-    - renewal
+    - csr
     - user
     - addons
 
-  - name: 判断 kubelet bootstrappers kubeconfig 文件是否存在
-    stat:
-      path: "{{ item.path }}"
-    with_items: "{{ kube_config.contexts }}"
-    register: check_kubeconfig_files
+  # - name: 判断 kubelet bootstrappers kubeconfig 文件是否存在
+  #   stat:
+  #     path: "{{ item.path }}"
+  #   with_items: "{{ kube_config.contexts }}"
+  #   register: check_kubeconfig_files
 
-  - name: 创建 kubelet bootstrappers kubeconfig 文件
-    when: not item.stat.exists
-    include_tasks: "kubeconfig.yml"
-    with_items: "{{ kubeconfig_files['results'] }}":q
+  # - name: 创建 kubelet bootstrappers kubeconfig 文件
+  #   when: not item.stat.exists
+  #   include_tasks: "kubeconfig.yml"
+  #   with_items: "{{ check_kubeconfig_files['results'] }}"
   when: not first_master_already_running.stdout | bool

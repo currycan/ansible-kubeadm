@@ -1,8 +1,0 @@
-# backup etcd data
-- hosts:
-  - kube_masters
-  become: true
-  gather_facts: true
-  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
-  roles:
-  - 98-cluster-ops/backup
