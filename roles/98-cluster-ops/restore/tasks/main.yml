@@ -37,7 +37,7 @@
 
 - name: 分发备份文件到各节点
   copy:
-    src: "{{ etcd_latest_back_dir.path }}"
+    src: "{{ etcd_restore_data  | default(etcd_latest_back_dir.path) }}"
     dest: "{{ kubernetes_etc_dir }}/backup-etcd/etcd-snapshot-latest.db"
     mode: 0644
 

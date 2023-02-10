@@ -1,5 +1,5 @@
 # certificates expired time
-certs_expired: 365000
+certs_expired: 36500
 
 # etcd certificates
 etcd_ca: "{{ etcd_pki_dir }}/ca.crt"

@@ -43,6 +43,14 @@
     - csr
     - user
 
+# - name: 配置 kubelet-csr-approver 服务
+#   copy:
+#     src: "{{ item }}"
+#     dest: "{{ addons_dir }}"
+#     mode: 0644
+#   with_items:
+#     - approver
+
 - name: 配置 coredns
   include_tasks: coredns.yml
 

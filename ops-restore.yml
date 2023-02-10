@@ -28,5 +28,7 @@
   become: true
   gather_facts: true
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  vars:
+    # etcd_restore_data: "/data_bak/etcd/etcd-2023-02-09-16:03.db"
   roles:
   - 98-cluster-ops/restore

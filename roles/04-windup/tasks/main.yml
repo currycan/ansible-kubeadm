@@ -1,5 +1,6 @@
 - block:
   # Error from server: Get "https://10.0.1.4:10250/containerLogs/kube-system/kube-apiserver-10.0.1.4/kube-apiserver?follow=true": remote error: tls: internal error
+  # 基于安全性考虑，CSR approving controllers 不会自动 approve kubelet server 证书签名请求，需要手动 approve。
   - name: 手动 approve csr
     shell: >
       [ `kubectl get csr | grep 'Pending' | wc -l` -ne 0 ] && \
