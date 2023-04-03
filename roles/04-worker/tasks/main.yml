@@ -3,7 +3,7 @@
     - inventory_hostname not in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
     - inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)
   shell: >
-    joined_or_not=`kubectl get nodes | grep {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} | wc -l`;
+    joined_or_not=`kubectl get nodes {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} --ignore-not-found | wc -l`;
     if [ $joined_or_not -eq 1 ];then
       echo true;
     else
