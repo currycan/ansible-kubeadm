@@ -45,7 +45,9 @@
         -nodes -subj '/CN=etcd-ca';
 
   - name: 添加 kube-apiserver 临时域名解析
-    when: lb_mode == "slb"
+    when:
+      - lb_mode == "slb"
+      - (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1
     blockinfile:
       path: /etc/hosts
       block: |-

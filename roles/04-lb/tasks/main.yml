@@ -34,5 +34,5 @@
     when:
       - not lb_running.stdout | bool
   when:
-  - lb_mode != "slb"
-  - groups['kube_masters'] | length > 1
+    - lb_mode != "slb"
+    - (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1

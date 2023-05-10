@@ -35,16 +35,3 @@
     owner: root
     group: root
     mode: 0755
-
-- name: 添加 kube-apiserver 域名到 hosts 文件中
-  blockinfile:
-    path: /etc/hosts
-    block: |-
-      {% for domain in kube_master_external_domain.split(',') %}
-      {{ lb_apiserver_ip }} {{ domain | trim }}
-      {% endfor %}
-    mode: 0644
-    state: present
-    create: yes
-    backup: yes
-    marker: "# Ansible kube-apiserver domain {mark}"

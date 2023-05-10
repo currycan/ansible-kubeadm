@@ -25,6 +25,33 @@
     mode: "{{ item.mode }}"
   with_items:
     - { src: "limit-docker.slice", dest: "{{ systemd_service_dir }}", mode: "0644" }
+    # 私有仓库自签证书认证
+    # - { src: "certs.d", dest: "{{ docker_etc_dir }}", mode: "0644" }
+
+- name: 判断是否为 GPU 节点
+  stat:
+    path: "/usr/bin/nvidia-smi"
+  register: check_gpu_node
+
+- block:
+  - name: 配置 nvidia-docker.repo
+    copy:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      mode: "{{ item.mode }}"
+    with_items:
+      - { src: "nvidia-docker.repo", dest: "/etc/yum.repos.d/", mode: "0644" }
+
+  - name: 安装 nvidia-container-runtime
+    package:
+      name:
+        - nvidia-container-runtime
+  when: check_gpu_node.stat.exists
+
+- name: 获取 GPU 节点
+  when: check_gpu_node.stat.exists
+  set_fact:
+    gpu_node: true
 
 - name: 配置 Docker engine
   template:

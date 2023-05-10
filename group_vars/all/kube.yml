@@ -5,7 +5,7 @@ kube_image_repository: registry.cn-hangzhou.aliyuncs.com/google_containers
 # k8s 集群 master 节点证书配置, 可以添加多个ip和域名（比如增加公网ip和域名）
 
 # kubelet 参数
-kubelet_max_pods: 128
+kubelet_max_pods: 100
 
 feature_gates:
   # kubectl debug 1.16.0 新增特性 , 默认关闭

@@ -20,5 +20,14 @@
     "live-restore": false,
     "oom-score-adjust": -600,
     "cgroup-parent": "limit-docker.slice",
+    {% if gpu_node is defined and gpu_node | bool -%}
+    "default-runtime": "nvidia",
+    "runtimes": {
+        "nvidia": {
+            "path": "/usr/bin/nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    },
+    {% endif -%}
     "debug": false
 }
