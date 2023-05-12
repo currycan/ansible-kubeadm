@@ -2,3 +2,4 @@
 *.log
 *.hosts
 test.yml
+.DS_Store
