@@ -25,6 +25,7 @@
   with_items:
     - { src: "etcd.sh", dest: "{{ profile_dir }}/etcd.sh", mode: "u=rwx"}
     - { src: "etcd_cron.sh", dest: "/usr/local/bin/etcd_cron.sh", mode: "u=rwx,g=rx,o=x" }
+  ignore_errors: true
 
 - name: 设置 etcd 数据备份, 每天凌晨3点备份
   cron:

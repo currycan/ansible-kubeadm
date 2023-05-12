@@ -5,7 +5,7 @@
     },
     "files.associations": {
         "./**/*.yml": "ansible",
-        "*.yaml": "yaml",
-        "*.yml": "ansible"
+        "*.yml": "ansible",
+        "*.yaml": "yaml"
     }
 }
