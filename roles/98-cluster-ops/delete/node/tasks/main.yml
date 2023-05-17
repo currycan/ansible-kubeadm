@@ -1,25 +1,26 @@
+---
 - name: 校验 worker 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: groups['kube_nodes'] | length > 1
     msg: "Worker 节点数量大于 1 才可进行 worker 节点移除操作。"
 
 - name: 校验将被移除的 worker 节点是否在原 worker 组中
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: "{{ item in groups['kube_nodes'] }}"
     msg: "当前节点: {{ item }}，并未在 kube_nodes 组中，不需要进行移除操作。"
   with_items: "{{ groups['delete_nodes'] }}"
 
 - name: 校验移除 worker 节点后剩余 worker 节点数量
   run_once: true
-  assert:
-    that: "{{ (groups['kube_nodes'] | difference(groups['delete_nodes']))|length >= 1 }}"
+  ansible.builtin.assert:
+    that: "{{ groups['kube_nodes'] | difference(groups['delete_nodes']) | length >= 1 }}"
     msg: "移除 worker 节点后，剩余 worker 节点数量应大于等于 1。"
 
 - name: 将节点设置为维护者模式并排空节点
   changed_when: true
-  shell: >
+  ansible.builtin.shell: >
     kubectl cordon {{ inventory_hostname }};
     kubectl drain {{ inventory_hostname }} \
       --ignore-daemonsets \
@@ -36,7 +37,7 @@
 
 - name: 将节点资源从集群中删除
   changed_when: true
-  shell: >
+  ansible.builtin.shell: >
     kubectl delete nodes {{ inventory_hostname }}
   register: delete_node
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"

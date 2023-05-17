@@ -1,6 +1,7 @@
+---
 # 3.4.10开始是必须0700权限,https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.4.md#breaking-changes
 - name: 安装 etcdctl 工具
-  copy:
+  ansible.builtin.copy:
     src: "{{ cache_dir }}/binary/etcd/etcdctl"
     dest: "/usr/bin/etcdctl"
     owner: root
@@ -8,7 +9,7 @@
     mode: 0755
 
 - name: 创建 etcd 数据备份目录
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     recurse: yes
@@ -16,20 +17,23 @@
     - "{{ etcd_data_bak_dir }}"
 
 - name: 配置 etcd 数据备份脚本
-  template:
-    src: "{{ item.src }}.j2"
-    dest: "{{ item.dest }}"
-    mode: "{{ item.mode }}"
-    owner: root
-    group: root
-  with_items:
-    - { src: "etcd.sh", dest: "{{ profile_dir }}/etcd.sh", mode: "u=rwx,g=rx,o=x" }
-    - { src: "etcd_cron.sh", dest: "/usr/local/bin/etcd_cron.sh", mode: "u=rwx,g=rx,o=x" }
-  # add masters 时会因为老节点不在任务中导致获取信息失败报错
-  ignore_errors: true
+  hosts: masters
+  block:
+    - name: 配置 etcd 数据备份脚本
+      ansible.builtin.template:
+        src: "{{ item.src }}.j2"
+        dest: "{{ item.dest }}"
+        mode: "{{ item.mode }}"
+        owner: root
+        group: root
+      with_items:
+        - { src: "etcd.sh", dest: "{{ profile_dir }}/etcd.sh", mode: "u=rwx,g=rx,o=x" }
+        - { src: "etcd_cron.sh", dest: "/usr/local/bin/etcd_cron.sh", mode: "u=rwx,g=rx,o=x" }
+      # add masters 时会因为老节点不在任务中导致获取信息失败报错
+      # ignore_errors: true
 
 - name: 设置 etcd 数据备份, 每天凌晨3点备份
-  cron:
+  ansible.builtin.cron:
     name: "create etcd data backup"
     minute: "0"
     hour: "3"

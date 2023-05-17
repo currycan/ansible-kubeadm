@@ -1,9 +1,10 @@
+---
 - name: 配置 device 参数
-  set_fact:
+  ansible.builtin.set_fact:
     disk_dev: "{{ out_item.item.item }}"
 
 - name: 获取磁盘设备分区信息
-  parted:
+  community.general.parted:
     device: "{{ disk_dev.device }}"
     unit: MiB
   register: device_info
@@ -11,7 +12,7 @@
 - name: 磁盘分区
   when: device_info.partitions.num is not defined
   register: parted_result
-  parted:
+  community.general.parted:
     label: gpt
     device: "{{ disk_dev.device }}"
     number: "{{ disk_dev.partition_number }}"
@@ -21,14 +22,14 @@
   when:
     - parted_result.partitions is defined
     - item.fstype != fstype
-  filesystem:
-    dev: "{{ disk_dev.device + disk_dev.partition_number|string }}"
+  community.general.filesystem:
+    dev: "{{ disk_dev.device + disk_dev.partition_number | string }}"
     fstype: "{{ fstype }}"
   with_items: "{{ parted_result.partitions }}"
 
 - name: 创建分区挂载目录
-  file:
-    dest: "{{ item }}"
+  ansible.builtin.file:
+    name: "{{ item }}"
     state: directory
     mode: 0644
   with_items:
@@ -37,23 +38,23 @@
 
 # mkfs.xfs /dev/sdb -f
 - name: 挂载分区
-  mount:
+  community.general.mount:
     path: "{{ disk_dev.mount_dir }}"
-    src: "{{ disk_dev.device + disk_dev.partition_number|string }}"
+    src: "{{ disk_dev.device + disk_dev.partition_number | string }}"
     fstype: "{{ fstype }}"
     state: mounted
     opts: 'defaults,nofail'
 
 - name: 创建绑定目录
-  file:
-    dest: "{{ disk_dev.mount_dir }}/{{ item.split('/')[-1] }}"
+  ansible.builtin.file:
+    name: "{{ disk_dev.mount_dir }}/{{ item.split('/')[-1] }}"
     state: directory
     mode: 0644
   with_items:
     - "{{ disk_dev.sub_dir }}"
 
 - name: 挂载目录
-  mount:
+  community.general.mount:
     path: "{{ item }}"
     src: "{{ disk_dev.mount_dir }}/{{ item.split('/')[-1] }}"
     opts: bind

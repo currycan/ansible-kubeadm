@@ -1,23 +1,23 @@
+---
 - name: 添加 kube-apiserver 域名到 hosts 文件中
-  when:
-  blockinfile:
-    path: /etc/hosts
+  ansible.builtin.blockinfile:
+    path: "/etc/hosts"
     block: |-
       {% for domain in kube_master_external_domain.split(',') %}
-      {%- (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1 -%}
-      {{ lb_apiserver_ip }} {{ domain | trim }}
+      {%- if groups['kube_masters'] | difference(groups['delete_masters']) | unique | length > 1 -%}
+        {{ lb_apiserver_ip }} {{ domain | trim }}
       {% else %}
-      {{ (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | first }} {{ domain | trim }}
+        {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }} {{ domain | trim }}
       {% endif %}
       {% endfor %}
     mode: 0644
     state: present
-    create: yes
-    backup: yes
+    create: true
+    backup: true
     marker: "# Ansible kube-apiserver domain {mark}"
 
 - name: 所有 kube_cluster 节点创建所需目录
-  file:
+  ansible.builtin.file:
     name: "{{ item }}"
     state: directory
     mode: 0644
@@ -30,26 +30,26 @@
   - "{{ kubelet_data_dir }}"
 
 - name: 所有 kube_cluster 节点渲染 kubelet.service
-  template:
+  ansible.builtin.template:
     src: "{{ item.src }}.j2"
     dest: "{{ item.dest }}"
     owner: "root"
     group: "root"
     mode: "{{ item.mode }}"
   with_items:
-    - { src: "kubelet/kubelet.service", dest: "{{ systemd_service_dir }}/kubelet.service", mode: "0644" }
+  - { src: "kubelet/kubelet.service", dest: "{{ systemd_service_dir }}/kubelet.service", mode: "0644" }
 
 - name: 所有 kube_cluster 节点渲染 kubelet.service.d 配置文件
-  template:
+  ansible.builtin.template:
     src: "{{ item.src }}.j2"
     dest: "{{ item.dest }}"
     owner: "root"
     group: "root"
     mode: "0644"
   with_items:
-    - { src: "kubelet/10-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/10-kubeadm.conf" }
-    - { src: "kubelet/00-container-runtime.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf" }
-    - { src: "kubelet/00-cgroup.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf" }
+  - { src: "kubelet/10-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/10-kubeadm.conf" }
+  - { src: "kubelet/00-container-runtime.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf" }
+  - { src: "kubelet/00-cgroup.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf" }
 
 ## 1.15.12 匿名用户报错：
 # https://happywzy.top/k8s-master-jie-dian-notready/
@@ -59,12 +59,12 @@
 # systemctl stop kubelet && ip link del cni0 && systemctl restart kubelet
 - name: 所有 kube_cluster 节点渲染相关配置文件
   when: kube_version is version('1.17.0', '<=')
-  template:
+  ansible.builtin.template:
     src: "{{ item.src }}.j2"
     dest: "{{ item.dest }}"
     owner: "root"
     group: "root"
     mode: "0644"
   with_items:
-    # 不需要创建,static pod 会初始化失败
-    - { src: "cni-plugin/10-containerd-net.conflist", dest: "{{ cni_etc_dir }}/99-containerd-net.conflist" }
+  # 不需要创建,static pod 会初始化失败
+  - { src: "cni-plugin/10-containerd-net.conflist", dest: "{{ cni_etc_dir }}/99-containerd-net.conflist" }

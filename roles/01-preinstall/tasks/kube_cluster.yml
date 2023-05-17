@@ -1,5 +1,6 @@
+---
 - name: 二进制安装 kubernetes
-  copy:
+  ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     owner: root
@@ -9,7 +10,7 @@
     - { src: "{{ cache_dir }}/binary/kubernetes/", dest: "/usr/bin/"}
 
 - name: 添加 kubectl kubeadm 命令自动补全
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: "{{ ansible_env.HOME }}/.bashrc"
     state: present
     regexp: "{{ item }} completion"
@@ -18,8 +19,9 @@
     - kubectl
     - kubeadm
 
-- name: kubectl kubeadm 自动补全写入 /etc/bash_completion.d/
-  shell: >
+- name: 自动补全kubectl 和 kubeadm 写入 /etc/bash_completion.d/
+  changed_when: true
+  ansible.builtin.shell: >
     {{ item }} completion bash > /etc/bash_completion.d/{{ item }};
     source {{ ansible_env.HOME }}/.bash_profile
   args:
@@ -29,7 +31,7 @@
     - kubeadm
 
 - name: 安装 kubelet 启动优化脚本
-  copy:
+  ansible.builtin.copy:
     src: "kubelet-pre-start.sh"
     dest: "/usr/local/bin/"
     owner: root

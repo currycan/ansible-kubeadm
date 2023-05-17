@@ -1,5 +1,6 @@
-# 系统基础软件环境
-- include_tasks: centos.yml
+---
+- name: 系统基础软件环境
+  ansible.builtin.include_tasks: centos.yml
 
-# 公共系统参数设置
-- include_tasks: common.yml
+- name: 公共系统参数设置
+  ansible.builtin.include_tasks: common.yml

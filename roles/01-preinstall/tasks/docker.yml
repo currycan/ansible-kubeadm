@@ -1,5 +1,6 @@
+---
 - name: 二进制安装 docker
-  copy:
+  ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     owner: root
@@ -9,7 +10,7 @@
     - { src: "{{ cache_dir }}/binary/docker/", dest: "/usr/bin/"}
 
 - name: 安装 docker 命令补全工具
-  copy:
+  ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     mode: "{{ item.mode }}"

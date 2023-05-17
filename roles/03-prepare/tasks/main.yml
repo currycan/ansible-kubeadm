@@ -1,13 +1,14 @@
+---
 - name: 初始化化 kubernetes 集群所有节点
-  include_tasks: init_all.yml
+  ansible.builtin.include_tasks: init_all.yml
   when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
 
 - name: 初始化化 kubernetes 集群 master 节点
-  include_tasks: init_master.yml
+  ansible.builtin.include_tasks: init_master.yml
   when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)"
 
 - name: 初始化化 kubernetes 集群 worker 节点
-  include_tasks: init_worker.yml
+  ansible.builtin.include_tasks: init_worker.yml
   when:
     - inventory_hostname not in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
     - inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)

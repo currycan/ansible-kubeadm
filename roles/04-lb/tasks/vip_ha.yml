@@ -1,14 +1,16 @@
-- block:
-  - name: 生成 {{ lb_mode }} static pod 配置文件
-    when: item.lb == lb_mode
-    template:
-      src: "{{ item.src }}.j2"
-      dest: "{{ item.dest }}"
-      owner: "root"
-      group: "root"
-      mode: "0644"
-    with_items:
-      # kube-vip
-      - { src: "kube-vip/lb-kube-vip.yaml", dest: "{{ manifest_dir }}/lb-kube-vip.yaml", lb: "kube-vip" }
+---
+- name: 安装 kube-vip
   when:
     - lb_mode == "kube-vip"
+  block:
+    - name: 生成 {{ lb_mode }} static pod 配置文件
+      when: item.lb == lb_mode
+      ansible.builtin.template:
+        src: "{{ item.src }}.j2"
+        dest: "{{ item.dest }}"
+        owner: "root"
+        group: "root"
+        mode: "0644"
+      with_items:
+        # kube-vip
+        - { src: "kube-vip/lb-kube-vip.yaml", dest: "{{ manifest_dir }}/lb-kube-vip.yaml", lb: "kube-vip" }

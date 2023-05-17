@@ -1,5 +1,6 @@
+---
 - name: 停用systemd自动加载模块服务
-  systemd:
+  ansible.builtin.systemd:
     name: systemd-modules-load
     state: stopped
     enabled: no
@@ -7,27 +8,31 @@
   failed_when: stop_modules_result.failed
 
 - name: 删除内核模块开机加载配置
-  file: path=/etc/modules-load.d/10-k8s-modules.conf state=absent
+  ansible.builtin.file:
+    path: /etc/modules-load.d/10-k8s-modules.conf
+    state: absent
 
 - name: 获取当前内核版本
   changed_when: true
-  command: "uname -r"
+  ansible.builtin.command: "uname -r"
   register: get_kernel_version
 
 - name: 设置内核版本参数
-  set_fact:
+  ansible.builtin.set_fact:
     set_fact_kernel_version: "{{ get_kernel_version.stdout.split('-')[0] }}"
 
 - name: 设置 nf_conntrack 模块名
   when: "set_fact_kernel_version is version('4.19', '>=')"
-  set_fact: nf_conntrack="nf_conntrack"
+  ansible.builtin.set_fact:
+    nf_conntrack: "nf_conntrack"
 
 - name: 设置 nf_conntrack_ipv4 模块名
   when: "set_fact_kernel_version is version('4.19', '<')"
-  set_fact: nf_conntrack="nf_conntrack_ipv4"
+  ansible.builtin.set_fact:
+    nf_conntrack: "nf_conntrack_ipv4"
 
 - name: 卸载已加载的内核模块
-  modprobe:
+  community.general.modprobe:
     name: "{{ item }}"
     state: absent
   with_items:
@@ -50,7 +55,7 @@
   failed_when: false
 
 - name: 删除内核优化
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   with_items:
@@ -58,4 +63,4 @@
 
 - name: 重新加载系统参数
   changed_when: true
-  command: "sysctl --system"
+  ansible.builtin.command: "sysctl --system"

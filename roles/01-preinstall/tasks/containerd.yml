@@ -1,5 +1,6 @@
+---
 - name: 二进制安装 containerd、cni 和 crictl
-  copy:
+  ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     owner: root
@@ -12,7 +13,7 @@
     - { src: "{{ cache_dir }}/binary/crictl/", dest: "/usr/bin/"}
 
 - name: 升级 libseccomp, 2.3 版本不支持当前 containerd
-  command: >-
+  ansible.builtin.shell: >-
     rpm -Uvh --nodeps --force libseccomp-2.5.2-1.el8.x86_64.rpm
   args:
     warn: false
@@ -21,14 +22,15 @@
   failed_when: libseccomp_rpm_install.rc != 0 and "is already installed" not in libseccomp_rpm_install.stderr
   changed_when: libseccomp_rpm_install.rc == 0
 
-- name: crictl 命令自动补全
+- name: 自动补全 crictl 命令
   changed_when: true
-  shell: >
+  ansible.builtin.shell: >
     crictl completion bash > /etc/bash_completion.d/crictl;
     source /etc/bash_completion.d/crictl
 
 - name: 重启 containerd
-  shell: >
+  changed_when: true
+  ansible.builtin.shell: >
     if [ -f {{ systemd_service_dir }}/containerd.service ];then
       systemctl restart containerd;
     else

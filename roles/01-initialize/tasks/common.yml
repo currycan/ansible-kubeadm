@@ -1,24 +1,25 @@
+---
 - name: 时区修改
   changed_when: true
-  shell: >-
+  ansible.builtin.shell: >-
     set -o pipefail;
     timedatectl set-timezone Asia/Shanghai;
     timedatectl set-local-rtc 0
 
 - name: 禁用系统 swap
   changed_when: true
-  shell: >
+  ansible.builtin.shell: >
     swapoff -a
 
 - name: 删除fstab swap 相关配置
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/fstab
     regexp: 'swap'
     state: absent
     backup: 'yes'
 
 - name: 启动 irqbalance 服务, 并设置开机启动
-  systemd:
+  ansible.builtin.systemd:
     name: irqbalance
     daemon_reload: yes
     state: restarted
@@ -30,23 +31,27 @@
 
 - name: 获取当前内核版本
   changed_when: true
-  command: "uname -r"
+  ansible.builtin.command: "uname -r"
   register: get_kernel_version
 
 - name: 设置内核版本参数
-  set_fact:
+  ansible.builtin.set_fact:
     set_fact_kernel_version: "{{ get_kernel_version.stdout.split('-')[0] }}"
 
 - name: 设置 nf_conntrack 模块名
   when: "set_fact_kernel_version is version('4.19', '>=')"
-  set_fact: nf_conntrack="nf_conntrack"
+  ansible.builtin.set_fact:
+    nf_conntrack: "nf_conntrack"
 
 - name: 设置 nf_conntrack_ipv4 模块名
   when: "set_fact_kernel_version is version('4.19', '<')"
-  set_fact: nf_conntrack="nf_conntrack_ipv4"
+  ansible.builtin.set_fact:
+    nf_conntrack: "nf_conntrack_ipv4"
 
 - name: 加载内核模块
-  modprobe: name={{ item }} state=present
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
   with_items:
     - br_netfilter
     - ip_vs
@@ -66,13 +71,13 @@
     - sunrpc
 
 - name: 设置 systemd-modules-load 配置
-  template:
+  ansible.builtin.template:
     src: 10-k8s-modules.conf.j2
     dest: /etc/modules-load.d/10-k8s-modules.conf
     mode: 0644
 
 - name: 启动 systemd-modules-load 服务, 并设置开机启动
-  systemd:
+  ansible.builtin.systemd:
     name: systemd-modules-load
     daemon_reload: yes
     state: restarted
@@ -83,16 +88,16 @@
   delay: "{{ retry_stagger }}"
 
 # - name: 判断 ipvs 规则文件是否存在
-#   stat:
+#   ansible.builtin.stat:
 #     path: /etc/sysconfig/ipvsadm
 #   register: ipvs_file_exist
 
 # - name: 配置 ipvsadm
-#   shell: ipvsadm --save > /etc/sysconfig/ipvsadm
+#   ansible.builtin.shell: ipvsadm --save > /etc/sysconfig/ipvsadm
 #   when: 'not ipvs_file_exist.stat.exists'
 
 # - name: 启动 ipvsadm, 并设置开机启动
-#   systemd:
+#   ansible.builtin.systemd:
 #     name: ipvsadm
 #     daemon_reload: yes
 #     # state: restarted
@@ -103,7 +108,7 @@
 #   # delay: "{{ retry_stagger }}"
 
 - name: 设置系统参数
-  template:
+  ansible.builtin.template:
     src: "{{ item }}.j2"
     dest: "/etc/sysctl.d/{{ item }}"
     mode: 0644
@@ -111,7 +116,7 @@
     - "95-k8s-sysctl.conf"
 
 - name: 修改内核参数
-  sysctl:
+  ansible.posix.sysctl:
     name: "{{ item.name }}"
     value: "{{ item.value }}"
     sysctl_set: yes
@@ -126,77 +131,77 @@
 
 - name: 生效系统参数
   changed_when: true
-  command: "sysctl -p /etc/sysctl.d/{{ item }}"
+  ansible.builtin.command: "sysctl -p /etc/sysctl.d/{{ item }}"
   with_items:
     - "95-k8s-sysctl.conf"
 
 - name: 优化 nfs clinet 配置
-  template:
+  ansible.builtin.template:
     src: sunrpc.conf.j2
     dest: /etc/modprobe.d/sunrpc.conf
     mode: 0644
 
 - name: 确认 hosts 文件中 localhost ipv4 配置正确
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/hosts
     line: "127.0.0.1 localhost localhost.localdomain"
     regexp: '^127.0.0.1.*$'
     state: present
 
 - name: 确认 hosts 文件中 localhost ipv6 配置正确
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/hosts
     line: "::1 localhost6 localhost6.localdomain"
     regexp: '^::1.*$'
     state: present
 
 - name: 创建 systemd 配置目录
-  file:
+  ansible.builtin.file:
     name: /etc/systemd/system.conf.d
     state: directory
     mode: 0644
 
 - name: 设置系统 ulimits
-  template:
+  ansible.builtin.template:
     src: 30-k8s-ulimits.conf.j2
     dest: /etc/systemd/system.conf.d/30-k8s-ulimits.conf
     mode: 0644
 
 - name: 把SCTP列入内核模块黑名单
-  copy:
+  ansible.builtin.copy:
     src: sctp.conf
     dest: /etc/modprobe.d/sctp.conf
     mode: 0644
 
 - name: 设置 ulimits
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/profile
     regexp: "ulimit -SHn"
     line: "ulimit -SHn 65535"
 
-- name: limit 优化
-  copy:
+- name: 优化 /etc/security/limits.conf
+  ansible.builtin.copy:
     src: limits.conf
     dest: /etc/security/limits.conf
     mode: 0644
 
 # 优化设置 journal 日志相关, 避免日志重复搜集, 浪费系统资源
 - name: 准备 journal 日志相关目录
-  file:
+  ansible.builtin.file:
     name: "{{ item }}"
     state: directory
     mode: 0644
   with_items:
-  - "/etc/systemd/journald.conf.d"
-  - "/var/log/journal"
+    - "/etc/systemd/journald.conf.d"
+    - "/var/log/journal"
 
 - name: 优化设置 journal 日志
-  template:
+  ansible.builtin.template:
     src: 95-k8s-journald.conf.j2
     dest: /etc/systemd/journald.conf.d/95-k8s-journald.conf
     mode: 0644
 
 - name: 重启 journald 服务
-  service:
+  ansible.builtin.service:
     name: systemd-journald
     state: restarted

@@ -1,5 +1,8 @@
+---
 - name: 删除所有 etcd 文件及目录
-  file: path="{{ item }}" state=absent
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
   with_items:
     - "{{ etcd_data_bak_dir }}"
     - "{{ etcd_pki_dir }}"
@@ -7,6 +10,6 @@
     - "/usr/local/bin/etcd_cron.sh"
 
 - name: 删除 etcd 数据备份 crontab 任务
-  cron:
+  ansible.builtin.cron:
     name: "create etcd data backup"
     state: absent

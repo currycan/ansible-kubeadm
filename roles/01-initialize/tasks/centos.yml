@@ -1,5 +1,6 @@
+---
 - name: 删除centos默认安装
-  yum:
+  ansible.builtin.yum:
     name:
     - firewalld
     - python-firewall
@@ -9,25 +10,25 @@
     disablerepo: "*"
 
 - name: 临时关闭 selinux
-  command: "setenforce 0"
+  ansible.builtin.command: "setenforce 0"
   changed_when: true
   failed_when: false
 
 - name: 永久关闭 selinux
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/selinux/config
     regexp: "^SELINUX="
     line: "SELINUX=disabled"
     backrefs: yes
 
 - name: 设置 yum obsoletes 值为 0
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/yum.conf
     regexp: '^obsoletes=1'
     line: obsoletes=0
 
 - name: 判断依赖组件是否安装
-  shell: >-
+  ansible.builtin.shell: >-
     set -o pipefail;
     yum_installed_num=0;
     for rpm in {socat,conntrack,ebtables,ipset};
@@ -40,14 +41,16 @@
   args:
     warn: no
 
-- block:
-  - name: debug
-    debug:
+- name: 安装基础依赖
+  when: 'yum_installed_result.stdout is defined and yum_installed_result.stdout != "4"'
+  block:
+  - name: Debug
+    ansible.builtin.debug:
       msg: "安装基础依赖, 可能需要一定时间。。"
     run_once: true
 
   - name: 离线安装基础依赖
-    command: >-
+    ansible.builtin.shell: >-
       rpm -Uvh --nodeps --force *.rpm
     args:
       warn: false
@@ -57,7 +60,7 @@
     changed_when: dependence_rpm_install.rc == 0
 
   # - name: yum 安装基础软件包
-  #   package:
+  #   ansible.builtin.package:
   #     name:
   #       - conntrack
   #       - conntrack-tools         # ipvs 模式需要
@@ -99,27 +102,31 @@
   #       - glib2-devel
   #       - irqbalance    # 优化 CPU
   #     state: present
-  when: 'yum_installed_result.stdout is defined and yum_installed_result.stdout != "4"'
 
 - name: 重新启动 crond 避免因修改时区而导致的作业错乱问题
-  service:
+  ansible.builtin.systemd:
     name: crond
+    daemon_reload: yes
     state: restarted
     enabled: yes
 
 - name: 判断 irqbalance 文件是否存在
-  stat: path=/etc/sysconfig/irqbalance
+  ansible.builtin.stat:
+    path: /etc/sysconfig/irqbalance
   register: centos_irq_config_file
 
 - name: 修改 irqbalance 配置文件, 提升CPU性能
-  lineinfile:
-    dest=/etc/sysconfig/irqbalance
-    regexp='(?<!_)ONESHOT='
-    line='ONESHOT=yes'
+  ansible.builtin.lineinfile:
+    dest: /etc/sysconfig/irqbalance
+    regexp: '(?<!_)ONESHOT='
+    line: 'ONESHOT=yes'
   when: centos_irq_config_file.stat.exists
 
 - name: 配置 rsyslog.conf
-  copy: src=rsyslog.conf dest=/etc/rsyslog.conf mode=0644
+  ansible.builtin.copy:
+    src: rsyslog.conf
+    dest: /etc/rsyslog.conf
+    mode: 0644
 
 # 优化设置 journal 日志相关, 避免日志重复搜集, 浪费系统资源
 # - name: 禁止rsyslog获取journald日志1
@@ -137,4 +144,8 @@
 #     line: '#$IMJournalStateFile imjournal.state'
 
 - name: 重启rsyslog服务
-  service: name=rsyslog state=restarted
+  ansible.builtin.systemd:
+    name: rsyslog
+    daemon_reload: yes
+    state: restarted
+    enabled: yes

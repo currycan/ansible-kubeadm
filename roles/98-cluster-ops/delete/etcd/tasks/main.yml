@@ -1,46 +1,47 @@
+---
 - name: 校验删除 etcd 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: (groups['delete_masters'] | unique)|length > 0
     msg: " 未配置删除 etcd 节点!"
 
 - name: 校验 etcd 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique)|length > 1
     msg: "Etcd 节点数量大于 1 才可进行 etcd 节点移除操作。"
 
 - name: 校验将被移除的 etcd 节点是否在原 etcd 组中
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: "{{ item in groups['kube_masters'] }}"
     msg: "当前节点: {{ item }}, 并未在 etcd 组中, 不需要进行移除操作。"
   with_items: "{{ groups['delete_masters'] }}"
 
 - name: 校验现有 etcd 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) > 1
     msg: "Etcd 节点数量大于 1 才可进行 etcd 节点移除操作。"
 
 - name: 校验移除 etcd 节点后剩余 etcd 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) is odd
     msg: "移除 etcd 节点后, 剩余 etcd 节点只能为奇数个, 当前 {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | length }} 个, 请修改 etcd 节点数量至奇数个。"
 
 - name: 获取将要移除的 etcd 节点 member id
   changed_when: true
   failed_when: false
-  shell: >
+  ansible.builtin.command: >-
     set -o pipefail;
     etcdctl member list | grep {{ inventory_hostname }} | cut -d',' -f1
   environment:
-    - ETCDCTL_CERT: "{{ etcd_pki_dir }}/healthcheck-client.crt"
-    - ETCDCTL_KEY: "{{ etcd_pki_dir }}/healthcheck-client.key"
-    - ETCDCTL_CACERT: "{{ etcd_pki_dir }}/ca.crt"
-    - ETCDCTL_ENDPOINTS: "{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)| unique %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
-    - ETCDCTL_API: 3
+    ETCDCTL_CERT: "{{ etcd_pki_dir }}/healthcheck-client.crt"
+    ETCDCTL_KEY: "{{ etcd_pki_dir }}/healthcheck-client.key"
+    ETCDCTL_CACERT: "{{ etcd_pki_dir }}/ca.crt"
+    ETCDCTL_ENDPOINTS: "{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
+    ETCDCTL_API: 3
   args:
     executable: /bin/bash
   delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
@@ -50,21 +51,21 @@
   when: etcd_member_id.stdout | length > 0
   changed_when: true
   failed_when: false
-  shell: >
+  ansible.builtin.shell: >
     set -o pipefail;
     etcdctl member remove {{ etcd_member_id.stdout }}
   environment:
-    - ETCDCTL_CERT: "{{ etcd_pki_dir }}/healthcheck-client.crt"
-    - ETCDCTL_KEY: "{{ etcd_pki_dir }}/healthcheck-client.key"
-    - ETCDCTL_CACERT: "{{ etcd_pki_dir }}/ca.crt"
-    - ETCDCTL_ENDPOINTS: "{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)| unique %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
-    - ETCDCTL_API: 3
+    ETCDCTL_CERT: "{{ etcd_pki_dir }}/healthcheck-client.crt"
+    ETCDCTL_KEY: "{{ etcd_pki_dir }}/healthcheck-client.key"
+    ETCDCTL_CACERT: "{{ etcd_pki_dir }}/ca.crt"
+    ETCDCTL_ENDPOINTS: "{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
+    ETCDCTL_API: 3
   args:
     executable: /bin/bash
   delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
 
 - name: 删除所有 etcd 数据、证书及相关配置
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   with_items:
@@ -79,30 +80,34 @@
     - "{{ profile_dir }}/etcd.sh"
 
 - name: 删除 etcd 数据备份 crontab 任务
-  cron:
+  ansible.builtin.cron:
     name: "create etcd data backup"
     state: absent
 
-# - block:
-#   - name: 获取 etcd ca证书
-#     slurp:
-#       src: "{{ item }}"
-#     with_items:
-#       - "{{ etcd_pki_dir }}/ca.crt"
-#     register: slurp_etcd_ca_cert
-#     run_once: true
-#     delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
-
-#   - name: 创建 etcd 证书存放目录
-#     file: path={{ etcd_pki_dir }} state=directory
-
-#   - name: 恢复 etcd ca 证书到 master 节点
-#     copy:
-#       dest: "{{ item.source }}"
-#       content: "{{ item.content | b64decode }}"
-#       owner: root
-#       group: root
-#       mode: 0644
-#     no_log: true
-#     with_items: "{{ slurp_etcd_ca_cert.results }}"
+# - name: etcd 证书恢复
 #   when: inventory_hostname in groups['kube_masters']
+#   block:
+#     - name: 获取 etcd ca证书
+#       ansible.builtin.slurp:
+#         src: "{{ item }}"
+#       with_items:
+#         - "{{ etcd_pki_dir }}/ca.crt"
+#       register: slurp_etcd_ca_cert
+#       run_once: true
+#       delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
+
+#     - name: 创建 etcd 证书存放目录
+#       ansible.builtin.file:
+#         name: "{{ etcd_pki_dir }}"
+#         state: directory
+#         mode: 0644
+
+#     - name: 恢复 etcd ca 证书到 master 节点
+#       ansible.builtin.copy:
+#         dest: "{{ item.source }}"
+#         content: "{{ item.content | b64decode }}"
+#         owner: root
+#         group: root
+#         mode: 0644
+#       no_log: true
+#       with_items: "{{ slurp_etcd_ca_cert.results }}"

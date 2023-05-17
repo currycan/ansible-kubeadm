@@ -1,5 +1,6 @@
+---
 - name: 创建 master 节点各组件所需目录
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     mode: 0644
@@ -10,38 +11,40 @@
   - "{{ addons_dir }}"
 
 - name: 生成 encryption config
-  include_tasks: encryption_config_secret.yml
+  ansible.builtin.include_tasks: encryption_config_secret.yml
 
 - name: 获取 encryption config secret
-  shell: >
+  changed_when: true
+  ansible.builtin.shell: >-
+    set -o pipefail;
     cat "{{ kubernetes_etc_dir }}/encryption_config_secret.yml" | grep encryption_config_secret | cut -d ":" -f 2 | sed 's/^[ \t]*//g'
   register: get_encryption_config_secret
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
 - name: 设置 encryption_config_secret 变量
-  set_fact:
+  ansible.builtin.set_fact:
     encryption_config_secret: "{{ get_encryption_config_secret.stdout }}"
 
-- name: master 节点渲染配置文件
-  template:
+- name: Master 节点渲染配置文件
+  ansible.builtin.template:
     src: "{{ item.src }}.j2"
     dest: "{{ item.dest }}"
     owner: "root"
     group: "root"
     mode: "0644"
   with_items:
-    #  EncryptionConfig 密钥注意不能修改, 也就是不要重复生成。https://github.com/kubernetes/kubernetes/issues/66844
-    - { src: "encryption/config.yaml", dest: "{{ kubernetes_etc_dir }}/enc/secrets-encryption.yaml" }
-    - { src: "audit/policy.yaml", dest: "{{ kubernetes_etc_dir }}/audit/policy.yaml" }
+  #  EncryptionConfig 密钥注意不能修改, 也就是不要重复生成。https://github.com/kubernetes/kubernetes/issues/66844
+  - { src: "encryption/config.yaml", dest: "{{ kubernetes_etc_dir }}/enc/secrets-encryption.yaml" }
+  - { src: "audit/policy.yaml", dest: "{{ kubernetes_etc_dir }}/audit/policy.yaml" }
 
 - name: 配置 kubelet 自动轮换服务端证书配置和集群管理用户(如:admin/ops/dev)
-  copy:
+  ansible.builtin.copy:
     src: "{{ item }}"
     dest: "{{ kubernetes_etc_dir }}"
     mode: 0644
   with_items:
-    - csr
-    - user
+  - csr
+  - user
 
 # - name: 配置 kubelet-csr-approver 服务
 #   copy:
@@ -52,7 +55,7 @@
 #     - approver
 
 - name: 配置 coredns
-  include_tasks: coredns.yml
+  ansible.builtin.include_tasks: coredns.yml
 
 - name: 配置 kube-proxy
-  include_tasks: kube-proxy.yml
+  ansible.builtin.include_tasks: kube-proxy.yml

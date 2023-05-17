@@ -1,12 +1,15 @@
-# 初始化第一个 master 节点
-- include_tasks: init.yml
+---
+- name: 初始化第一个 master 节点
+  ansible.builtin.include_tasks: init.yml
   when: inventory_hostname == groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
 
 - name: 确认其他 master 节点是否已经加入集群
+  changed_when: true
   when:
     - inventory_hostname != groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
     - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
-  shell: >
+  ansible.builtin.shell: >
+    set -o pipefail;
     joined_or_not=`kubectl get nodes | grep {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} | wc -l`;
     if [ $joined_or_not -eq 1 ];then
       echo true;
@@ -18,29 +21,33 @@
   register: master_already_joined
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
-- block:
-  # # 由于 etcd 是二进制安装, 因此需要加上配置： --config kubeadm-config.yaml
-  - name: 生成 master 节点 join token
-    shell: >
-      if [ `kubeadm token list | grep {{ bootstrap_token | default('abcdef.0123456789abcdef') }} | wc -l` -eq 1 ];then
-        echo $(kubeadm token create --print-join-command --dry-run | grep join | sed "s/--token\s.*\s--discovery/--token {{ bootstrap_token | default('abcdef.0123456789abcdef') }} --discovery/g") \
-        --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
-      else
-        echo $(kubeadm token create --print-join-command --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml) \
-          --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
-      fi
-    environment:
-      KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-    register: master_kubeadm_join_cmd
-
-  - debug:
-      var: master_kubeadm_join_cmd.stdout_lines
-
-  - name: 获取 kubeadm join 命令
-    set_fact:
-      master_kubeadm_join: "{{ master_kubeadm_join_cmd.stdout }}"
+- name: 生成 kubeadm token
   run_once: true
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+  block:
+    # etcd 是二进制安装时要加上配置： --config kubeadm-config.yaml
+    - name: 生成 master 节点 join token
+      changed_when: true
+      ansible.builtin.shell: >
+        set -o pipefail;
+        if [ `kubeadm token list | grep {{ bootstrap_token | default('abcdef.0123456789abcdef') }} | wc -l` -eq 1 ];then
+          echo $(kubeadm token create --print-join-command --dry-run | grep join | sed "s/--token\s.*\s--discovery/--token {{ bootstrap_token | default('abcdef.0123456789abcdef') }} --discovery/g") \
+          --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+        else
+          echo $(kubeadm token create --print-join-command --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml) \
+            --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+        fi
+      environment:
+        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+      register: master_kubeadm_join_cmd
+
+    - name: Debug
+      ansible.builtin.debug:
+        ansible.builtin.var: master_kubeadm_join_cmd.stdout_lines
+
+    - name: 获取 kubeadm join 命令
+      ansible.builtin.set_fact:
+        master_kubeadm_join: "{{ master_kubeadm_join_cmd.stdout }}"
 
 # - name: 分发 bootstrap-kubelet.conf 文件到其他 master 节点
 #   when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
@@ -53,44 +60,47 @@
 #   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
 - name: 其他 master 节点加入集群
-  include_tasks: join.yml
+  ansible.builtin.include_tasks: join.yml
   when:
     - master_already_joined.stdout is defined
     - not master_already_joined.stdout | bool
     - inventory_hostname != groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
     - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
 
-- block:
-  # 其他 master 节点
-  - name: 更新证书 10 年有效期
-    shell: >
-      /usr/local/bin/update-kubeadm-cert.sh all
-    environment:
-      ENABLE_INIT: true
-
-  - name: 配置 kubeconfig admin 文件到 $HOME/.kube/config
-    copy:
-      src: "{{ kubernetes_etc_dir }}/admin.conf"
-      dest: "{{ ansible_env.HOME }}/.kube/config"
-      owner: root
-      group: root
-      mode: 0600
-
-  - name: master 设置节点标签, 并设置污点（禁止调度）
-    shell: >
-      {% if groups['kube_masters'] | length > 1 -%}
-        kubectl taint node {{ inventory_hostname }} node-role.kubernetes.io/master=true:NoSchedule --overwrite;
-      {%- endif -%}
-      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/master='' --overwrite;
-      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/control-plane='' --overwrite;
-      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/ingress='' --overwrite
-    environment:
-        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-    # until: set_taint_master.rc == 0
-    # retries: 3
-    # delay: "{{ retry_stagger }}"
-    # register: set_taint_master
-
-  - name: 普通用户配置集群访问权限
-    include_tasks: normal-user-admission.yml
+- name: master 节点收尾处理
   when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)"
+  block:
+  # 其他 master 节点
+    - name: 更新证书 10 年有效期
+      changed_when: true
+      ansible.builtin.shell: >
+        /usr/local/bin/update-kubeadm-cert.sh all
+      # environment:
+      #   ENABLE_INIT: true
+
+    - name: 配置 kubeconfig admin 文件到 $HOME/.kube/config
+      ansible.builtin.copy:
+        src: "{{ kubernetes_etc_dir }}/admin.conf"
+        dest: "{{ ansible_env.HOME }}/.kube/config"
+        owner: root
+        group: root
+        mode: 0600
+
+    - name: master 设置节点标签, 并设置污点（禁止调度）
+      changed_when: true
+      ansible.builtin.shell: >
+        {% if groups['kube_masters'] | length > 1 -%}
+          kubectl taint node {{ inventory_hostname }} node-role.kubernetes.io/master=true:NoSchedule --overwrite;
+        {%- endif -%}
+        kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/master='' --overwrite;
+        kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/control-plane='' --overwrite;
+        kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/ingress='' --overwrite
+      environment:
+        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+      # until: set_taint_master.rc == 0
+      # retries: 3
+      # delay: "{{ retry_stagger }}"
+      # register: set_taint_master
+
+    - name: 普通用户配置集群访问权限
+      ansible.builtin.include_tasks: normal-user-admission.yml

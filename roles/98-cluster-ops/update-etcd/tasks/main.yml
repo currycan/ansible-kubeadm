@@ -1,5 +1,6 @@
+---
 - name: etcd 节点配置更新
-  template:
+  ansible.builtin.template:
     src: "{{ inventory_dir }}/roles/01-preinstall/templates/{{ item.src }}.j2"
     dest: "{{ item.dest }}"
     mode: "{{ item.mode }}"

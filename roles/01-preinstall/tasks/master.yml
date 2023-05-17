@@ -1,5 +1,6 @@
+---
 - name: 安装证书更新脚本(要求 kubernetes 版本>1.17)
-  copy:
+  ansible.builtin.copy:
     src: "update-kubeadm-cert.sh"
     dest: "/usr/local/bin/"
     owner: root
@@ -7,7 +8,7 @@
     mode: 0755
 
 - name: 安装 helm
-  copy:
+  ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     owner: root
@@ -17,7 +18,7 @@
     - { src: "{{ cache_dir }}/binary/helm/", dest: "/usr/bin/"}
 
 - name: 添加 helm 命令自动补全
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: "{{ ansible_env.HOME }}/.bashrc"
     state: present
     regexp: "{{ item }} completion"
@@ -25,8 +26,9 @@
   with_items:
     - helm
 
-- name: helm 自动补全写入 /etc/bash_completion.d/
-  shell: >
+- name: 自动补全 helm 写入 /etc/bash_completion.d/
+  changed_when: true
+  ansible.builtin.shell: >
     {{ item }} completion bash > /etc/bash_completion.d/{{ item }};
     source {{ ansible_env.HOME }}/.bash_profile
   args:

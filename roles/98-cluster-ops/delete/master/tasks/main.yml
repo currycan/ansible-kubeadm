@@ -1,36 +1,37 @@
+---
 - name: 校验删除 master 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: (groups['delete_masters'] | unique)|length > 0
     msg: " 未配置删除 master 节点!"
 
 - name: 校验将被移除的 master 节点是否在原 master 组中
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: "{{ item in groups['kube_masters'] }}"
     msg: "当前节点: {{ item }}, 并未在 kube_masters 组中, 不需要进行移除操作。"
   with_items: "{{ groups['delete_masters'] }}"
 
 - name: 校验现有 master 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) > 1
     msg: "Master 节点数量大于 1 才可进行 master 节点移除操作。"
 
 - name: 校验移除 master 节点后剩余 master 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) is odd
     msg: "移除 master 节点后, 剩余 master 节点只能为奇数个, 当前 {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | length }} 个, 请修改 master 节点数量至奇数个。"
 
 - name: 刷新集群 master 节点状态
   failed_when: false
   changed_when: true
-  command: >
+  ansible.builtin.command: >
     kubeadm reset phase update-cluster-status
 
 - name: 删除 master 节点组件相关文件
-  file:
+  ansible.builtin.file:
     name: "{{ item }}"
     state: absent
   with_items:
@@ -51,7 +52,7 @@
 - name: 取消节点原有 master 角色标签
   failed_when: false
   changed_when: true
-  shell: >
+  ansible.builtin.shell: >
     kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/control-plane='' --overwrite;
     kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/master='' --overwrite;
     kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/control-plane-;
@@ -62,7 +63,7 @@
 - name: 取消 master 节点 taint, 使 master 节点可以调度
   failed_when: false
   changed_when: true
-  shell: >
+  ansible.builtin.shell: >
     kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/master='':NoSchedule --overwrite;
     kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/master-;
     kubectl uncordon {{ inventory_hostname }}
@@ -71,21 +72,21 @@
 - name: 添加 worker 角色标签
   failed_when: false
   changed_when: true
-  shell: >
+  ansible.builtin.shell: >
     kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/worker='' --overwrite
   delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
 
 - name: 获取 kubernetes ca 证书
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ item }}"
   with_items:
-    - "{{ kubernetes_ca }}"
+  - "{{ kubernetes_ca }}"
   register: slurp_kubernetes_ca_cert
   run_once: true
   delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
 
 - name: 恢复目录
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     mode: 0644
@@ -93,7 +94,7 @@
   - "{{ k8s_pki_dir }}"
 
 - name: 恢复 kubernetes ca 证书
-  copy:
+  ansible.builtin.copy:
     dest: "{{ item.source }}"
     content: "{{ item.content | b64decode }}"
     owner: root
@@ -103,7 +104,7 @@
   with_items: "{{ slurp_kubernetes_ca_cert.results }}"
 
 - name: 重启 kubelet 服务
-  systemd:
+  ansible.builtin.systemd:
     name: kubelet
     daemon_reload: yes
     state: restarted

@@ -1,16 +1,19 @@
-- block:
-  - name:  卸载 ntp
-    package:
+---
+- name: 安装 chrony
+  when: groups['chrony']|length > 0
+  block:
+  - name: 卸载 ntp
+    ansible.builtin.package:
       name: ntp
       state: absent
 
-  - name: debug
-    debug:
+  - name: Debug
+    ansible.builtin.debug:
       msg: "安装 chrony, 可能需要一定时间。。"
     run_once: true
 
   - name: 离线安装 chrony
-    command: >-
+    ansible.builtin.shell: >-
       rpm -Uvh --nodeps --force *.rpm
     args:
       warn: false
@@ -19,30 +22,36 @@
     failed_when: chrony_rpm_install.rc != 0 and "is already installed" not in chrony_rpm_install.stderr
     changed_when: chrony_rpm_install.rc == 0
 
-  - block:
+  - name: Chrony server 安装
+    when: 'inventory_hostname == groups.chrony[0]'
+    block:
     - name: 配置 chrony server
-      template:
+      ansible.builtin.template:
         src: server-centos.conf.j2
         dest: /etc/chrony.conf
         mode: 0644
 
     - name: 启动 chrony server
-      service: name=chronyd state=restarted enabled=yes
-    when: 'inventory_hostname == groups.chrony[0]'
+      ansible.builtin.systemd:
+        name: chronyd
+        daemon_reload: yes
+        state: restarted
+        enabled: yes
 
-  - block:
+  - name: Chrony client 安装
+    when: 'inventory_hostname != groups.chrony[0]'
+    block:
     - name: 配置 chrony client
-      template:
+      ansible.builtin.template:
         src: client-centos.conf.j2
         dest: /etc/chrony.conf
         mode: 0644
       when: 'ansible_distribution in ["CentOS","RedHat","Amazon"]'
 
     - name: 启动 chrony client
-      service:
+      ansible.builtin.systemd:
         name: chronyd
+        daemon_reload: yes
         state: restarted
         enabled: yes
       when: 'ansible_distribution in ["CentOS","RedHat","Amazon"]'
-    when: 'inventory_hostname != groups.chrony[0]'
-  when: groups['chrony']|length > 0

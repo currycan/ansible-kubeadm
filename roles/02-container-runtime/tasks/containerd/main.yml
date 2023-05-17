@@ -1,5 +1,6 @@
+---
 - name: 创建 containerd 配置文件目录
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     mode: 0644
@@ -9,7 +10,7 @@
 
 - name: 配置 containerd
   when: item.enable | bool
-  template:
+  ansible.builtin.template:
     src: "containerd/{{ item.src }}.j2"
     dest: "{{ item.dest }}"
     owner: "root"
@@ -18,10 +19,10 @@
   with_items:
     - { src: "containerd.service", dest: "{{ systemd_service_dir }}/containerd.service", enable: true }
     - { src: "crictl.yaml", dest: "/etc/crictl.yaml", enable: true }
-    - { src: "config.toml", dest: "{{ containerd_etc_dir }}/config.toml", enable: "{%- if container_runtime=='containerd' -%}true{% else %}false{%- endif -%}" }
+    - { src: "config.toml", dest: "{{ containerd_etc_dir }}/config.toml", enable: "{%- if container_runtime == 'containerd' -%}true{% else %}false{%- endif -%}" }
 
 - name: 启动 containerd, 并设置开机启动
-  systemd:
+  ansible.builtin.systemd:
     name: containerd
     daemon_reload: yes
     state: restarted

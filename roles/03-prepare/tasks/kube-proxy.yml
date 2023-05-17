@@ -1,6 +1,10 @@
-- block:
+---
+- name: 安装 kube-proxy
+  when:
+  - skip_kube_proxy | bool
+  block:
   - name: 创建 kube-proxy 组件配置文件目录
-    file:
+    ansible.builtin.file:
       path: "{{ item }}"
       state: directory
       mode: 0644
@@ -8,14 +12,12 @@
     - "{{ addons_dir }}/kube-proxy"
 
   - name: 渲染 kube-proxy 配置文件
-    template:
+    ansible.builtin.template:
       src: "{{ item.src }}.j2"
       dest: "{{ item.dest }}"
       owner: "root"
       group: "root"
       mode: "0644"
     with_items:
-      - { src: "kube-proxy/kubeproxy-cm.yml", dest: "{{ addons_dir }}/kube-proxy/kubeproxy-cm.yml" }
-      - { src: "kube-proxy/kubeproxy-ds.yml", dest: "{{ addons_dir }}/kube-proxy/kubeproxy-ds.yml" }
-  when:
-  - skip_kube_proxy | bool
+    - { src: "kube-proxy/kubeproxy-cm.yml", dest: "{{ addons_dir }}/kube-proxy/kubeproxy-cm.yml" }
+    - { src: "kube-proxy/kubeproxy-ds.yml", dest: "{{ addons_dir }}/kube-proxy/kubeproxy-ds.yml" }

@@ -1,5 +1,6 @@
+---
 # - name: 等待 apiserver 运行
-#   uri:
+#   ansible.builtin.uri:
 #     url: "https://{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:6443/healthz"
 #     validate_certs: no
 #   register: apiserver_result
@@ -8,7 +9,7 @@
 #   delay: 10
 
 # - name: 等待 kube-scheduler 运行
-#   uri:
+#   ansible.builtin.uri:
 #     url: "https://127.0.0.1:10259/healthz"
 #     validate_certs: no
 #   register: scheduler_result
@@ -17,7 +18,7 @@
 #   delay: 10
 
 # - name: 等待 kube-controller-manager 运行
-#   uri:
+#   ansible.builtin.uri:
 #     url: "https://127.0.0.1:10257/healthz"
 #     validate_certs: no
 #   register: controller_manager_result
@@ -26,7 +27,7 @@
 #   delay: 10
 
 - name: 等待 Kubernetes 三大核心组件启动
-  wait_for:
+  ansible.builtin.wait_for:
     host: >-
       127.0.0.1
     port: "{{ item }}"

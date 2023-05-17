@@ -1,55 +1,57 @@
+---
 - name: 校验 NodeName 是否合法
-  assert:
+  ansible.builtin.assert:
     that: inventory_hostname is match('^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$')
     msg: "NodeName 必须由小写字母、数字, “-”或“.”组成, 并且必须以小写字母或数字开头和结尾, 请修改重试。"
 
 - name: 校验 master 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: groups['masters']|length >= 1
     msg: "请将添加至少一个节点到 masters 节点组中。"
 
 - name: 校验 worker 节点数量
   when: groups['kube_cluster']|length != 1
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: groups['nodes']|length >= 1
     msg: "请将添加至少一个节点到 nodes 节点组中。"
 
 - name: 校验 etcd 节点数量
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) is odd
     msg: "初始化集群时 etcd 节点只能为奇数个, 当前 {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | length }} 个, 请添加或减少 etcd 节点数量至奇数个。"
 
-- block:
-  - name: 校验 lb 模式类型
-    run_once: true
-    assert:
-      that: lb_mode in ['slb', 'kube-vip', 'kube-lvscare']
-      msg: "不支持当前 {{ lb_mode }} 负载均衡模式, 请在 ['slb', 'kube-vip', 'kube-lvscare'] 中进行选择。"
-
-  - name: 校验 lb_apiserver_ip 是否赋值
-    run_once: true
-    assert:
-      that: lb_apiserver_ip is defined
-      msg: "请设置 lb_apiserver_ip, 以配置高可用集群"
-
-  - name: 校验 lb_apiserver_ip 是否符合 IP 规则
-    run_once: true
-    assert:
-      that: lb_apiserver_ip is regex("^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$")
-      msg: "请设置一个正确的 lb_apiserver_ip。"
-
-  - name: 校验 lb_apiserver_ip 是否为节点 IP
-    assert:
-      that: lb_apiserver_ip != "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}"
-      msg: "lb_apiserver_ip 不能设置为集群节点的 IP。"
+- name: 校验 LB 参数
   when: groups['kube_masters'] | difference(groups['delete_masters']) | unique | length > 1
+  block:
+    - name: 校验 lb 模式类型
+      run_once: true
+      ansible.builtin.assert:
+        that: lb_mode in ['slb', 'kube-vip', 'kube-lvscare']
+        msg: "不支持当前 {{ lb_mode }} 负载均衡模式, 请在 ['slb', 'kube-vip', 'kube-lvscare'] 中进行选择。"
+
+    - name: 校验 lb_apiserver_ip 是否赋值
+      run_once: true
+      ansible.builtin.assert:
+        that: lb_apiserver_ip is defined
+        msg: "请设置 lb_apiserver_ip, 以配置高可用集群"
+
+    - name: 校验 lb_apiserver_ip 是否符合 IP 规则
+      run_once: true
+      ansible.builtin.assert:
+        that: lb_apiserver_ip is regex("^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$")
+        msg: "请设置一个正确的 lb_apiserver_ip。"
+
+    - name: 校验 lb_apiserver_ip 是否为节点 IP
+      ansible.builtin.assert:
+        that: lb_apiserver_ip != "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}"
+        msg: "lb_apiserver_ip 不能设置为集群节点的 IP。"
 
 - name: 校验 k8s 版本和container runtime 关联, 默认 1.24+ 版本废弃 docker 只能使用 containerd
   when: kube_version is version('1.24.0', '>=')
   run_once: true
-  assert:
+  ansible.builtin.assert:
     that: container_runtime == 'containerd'
     msg: "当前安装 kubernetes 版本为{{ kube_version }}, 不支持使用 docker 为容器运行时, 1.24+版本已废弃 docker, 请修改 container_runtime 为 containerd"

@@ -1,38 +1,43 @@
-- block:
-  - name: 获取当前 {{ lb_mode }} 服务运行状态
-    shell: >
-      lb_running_num=0;
-      lb_srvs='{{ lb_mode }}';
-      for lb in ${lb_srvs};
-      do
-        {% if container_runtime == 'docker' -%}
-        [ `docker ps --filter name=k8s_lb-${lb}.* --filter status=running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
-        {% elif container_runtime == 'containerd' -%}
-        [ `crictl ps --name=lb-${lb}.* --state running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
-        {%- endif -%}
-      done;
-      if [ $lb_running_num -eq 1 ];then
-        lb_running=true
-      else
-        lb_running=false
-      fi;
-      echo $lb_running
-    register: lb_running
-
-  - block:
-    - name: 安装 kube-lvscare
-      when:
-      - lb_mode == "kube-lvscare"
-      - "inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)"
-      include_tasks: lvscare_ha.yml
-
-    - name: 安装 kube-vip
-      when:
-      - lb_mode == "kube-vip"
-      - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
-      include_tasks: vip_ha.yml
-    when:
-      - not lb_running.stdout | bool
+---
+- name: 确认 LB 服务是否正常运行
   when:
-    - lb_mode != "slb"
     - (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1
+    - lb_mode != "slb"
+  block:
+    - name: 获取当前 {{ lb_mode }} 服务运行状态
+      changed_when: true
+      ansible.builtin.shell: >
+        set -o pipefail;
+        lb_running_num=0;
+        lb_srvs={{ lb_mode }};
+        for lb in ${lb_srvs};
+        do
+        {% if container_runtime == 'docker' -%}
+          [ `docker ps --filter name=k8s_lb-${lb}.* --filter status=running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
+        {% elif container_runtime == 'containerd' -%}
+          [ `crictl ps --name=lb-${lb}.* --state running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
+        {%- endif -%}
+        done;
+        if [ $lb_running_num -eq 1 ];then
+          lb_running=true
+        else
+          lb_running=false
+        fi;
+        echo $lb_running
+      register: lb_running
+
+    - name: LB 安装
+      when:
+        - not lb_running.stdout | bool
+      block:
+        - name: 安装 kube-lvscare
+          when:
+            - lb_mode == "kube-lvscare"
+            - "inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)"
+          ansible.builtin.include_tasks: lvscare_ha.yml
+
+        - name: 安装 kube-vip
+          when:
+            - lb_mode == "kube-vip"
+            - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
+          ansible.builtin.include_tasks: vip_ha.yml

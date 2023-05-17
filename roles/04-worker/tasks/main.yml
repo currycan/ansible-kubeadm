@@ -1,8 +1,11 @@
+---
 - name: 确认 worker 节点是否已经加入集群
+  changed_when: true
   when:
     - inventory_hostname not in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
     - inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)
-  shell: >
+  ansible.builtin.shell: >
+    set -o pipefail;
     joined_or_not=`kubectl get nodes {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} --ignore-not-found | wc -l`;
     if [ $joined_or_not -eq 1 ];then
       echo true;
@@ -14,65 +17,76 @@
   register: worker_already_joined
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
-- block:
-  # # 由于 etcd 是二进制安装, 因此需要加上配置： --config kubeadm-config.yaml
-  - name: 生成 worker 节点 join token
-    shell: >
-      if [ `kubeadm token list | grep {{ bootstrap_token | default('abcdef.0123456789abcdef') }} | wc -l` -eq 1 ];then
-        echo $(kubeadm token create --print-join-command --dry-run | grep join | sed "s/--token\s.*\s--discovery/--token {{ bootstrap_token | default('abcdef.0123456789abcdef') }} --discovery/g") \
-        --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
-      else
-        echo $(kubeadm token create --print-join-command --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml) \
-          --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
-      fi
-    environment:
-      KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-    register: worker_kubeadm_join_cmd
-
-  - debug:
-      var: worker_kubeadm_join_cmd.stdout_lines
-
-  - name: 获取 kubeadm join 命令
-    set_fact:
-      worker_kubeadm_join: "{{ worker_kubeadm_join_cmd.stdout }}"
+- name: 生成 kubeadm join token
   run_once: true
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+  block:
+    - name: 生成 worker 节点 join token
+      changed_when: true
+      ansible.builtin.shell: >
+        set -o pipefail;
+        if [ `kubeadm token list | grep {{ bootstrap_token | default('abcdef.0123456789abcdef') }} | wc -l` -eq 1 ];then
+          echo $(kubeadm token create --print-join-command --dry-run | grep join | sed "s/--token\s.*\s--discovery/--token {{ bootstrap_token | default('abcdef.0123456789abcdef') }} --discovery/g") \
+          --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+        else
+          echo $(kubeadm token create --print-join-command --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml) \
+            --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+        fi
+      environment:
+        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+      register: worker_kubeadm_join_cmd
 
-- block:
-  # - pause:
-  #     prompt: "暂停, 手动确认继续执行, 测试用。。。"
+    - name: Debug
+      ansible.builtin.debug:
+        var: worker_kubeadm_join_cmd.stdout_lines
 
-  - debug: msg="worker 节点加入集群, 可能需要一定时间。。"
-  - name: worker 节点加入集群
-    shell: >
-      timeout -k 10s 5m {{ worker_kubeadm_join }} \
-        --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
-        --ignore-preflight-errors=all \
-        --v=5
-    register: worker_join_rslt
-    ignore_errors: true
+    - name: 获取 kubeadm join 命令
+      ansible.builtin.set_fact:
+        worker_kubeadm_join: "{{ worker_kubeadm_join_cmd.stdout }}"
 
-  - debug:
-      var: worker_join_rslt.stdout_lines
-
-  - name: 其他 worker 节点 join 是否成功
-    assert:
-      that: worker_join_rslt is succeeded
-      msg: "节点：{{ inventory_hostname }} kubeadm join 失败"
-
-  - name: 允许 worker 节点被调度, 设置节点标签
-    when: inventory_hostname in groups['kube_nodes']
-    shell: >
-      [ `kubectl get nodes {{ inventory_hostname }} --show-labels | grep cloudprovider` ] && \
-      kubectl taint node {{ inventory_hostname }} node.cloudprovider.kubernetes.io/uninitialized-;
-      kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/worker='' --overwrite
-    # register: set_taint_worker
-    # until: set_taint_worker.rc == 0
-    # retries: 3
-    # delay: "{{ retry_stagger }}"
-    delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+- name: Worker 节点加入集群
   when:
     - worker_already_joined.stdout is defined
     - not worker_already_joined.stdout | bool
     - inventory_hostname not in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
     - inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)
+  block:
+  # - name: 暂停测试
+  #   ansible.builtin.pause:
+  #     prompt: "暂停, 手动确认继续执行, 测试用。。。。"
+
+    - name: Debug
+      ansible.builtin.debug:
+        msg: "worker 节点加入集群, 可能需要一定时间。。"
+    - name: worker 节点加入集群
+      changed_when: true
+      ansible.builtin.shell: >
+        timeout -k 10s 5m {{ worker_kubeadm_join }} \
+          --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
+          --ignore-preflight-errors=all \
+          --v=5
+      register: worker_join_rslt
+      ignore_errors: true
+
+    - name: Debug
+      ansible.builtin.debug:
+        var: worker_join_rslt.stdout_lines
+
+    - name: 其他 worker 节点 join 是否成功
+      ansible.builtin.assert:
+        that: worker_join_rslt is succeeded
+        msg: "节点：{{ inventory_hostname }} kubeadm join 失败"
+
+    - name: 允许 worker 节点被调度, 设置节点标签
+      changed_when: true
+      when: inventory_hostname in groups['kube_nodes']
+      ansible.builtin.shell: >
+        set -o pipefail;
+        [ `kubectl get nodes {{ inventory_hostname }} --show-labels | grep cloudprovider` ] && \
+        kubectl taint node {{ inventory_hostname }} node.cloudprovider.kubernetes.io/uninitialized-;
+        kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/worker='' --overwrite
+      # register: set_taint_worker
+      # until: set_taint_worker.rc == 0
+      # retries: 3
+      # delay: "{{ retry_stagger }}"
+      delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"

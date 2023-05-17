@@ -1,22 +1,23 @@
+---
 - name: 判断执行用户是否存在
   changed_when: true
   failed_when: false
-  action: shell set -o pipefail && /usr/bin/getent passwd {{ item }} | grep {{ item }} | cut -d":" -f6
+  ansible.builtin.action: shell set -o pipefail && /usr/bin/getent passwd {{ item }} | grep {{ item }} | cut -d":" -f6
   register: user_results
   with_items:
   - "{{ normal_user }}"
 
 - name: 创建 $HOME/.kube/config 配置清单目录
   when: item.rc == 0
-  file:
+  ansible.builtin.file:
     name: "{{ item.stdout }}/.kube/"
     state: directory
     mode: 0600
   with_items:
-    - "{{ user_results['results'] }}"
+  - "{{ user_results['results'] }}"
 
 - name: 获取 kubeconfig admin 文件
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ kubernetes_etc_dir }}/admin.conf"
   register: slurp_kubeconfig
   run_once: true
@@ -24,7 +25,7 @@
 
 - name: 非 root 用户配置 $HOME/.kube/config
   when: item.rc == 0
-  copy:
+  ansible.builtin.copy:
     content: "{{ slurp_kubeconfig.content | b64decode }}"
     dest: "{{ item.stdout }}/.kube/config"
     owner: "{{ item.item }}"
@@ -32,11 +33,11 @@
     mode: 0600
   no_log: true
   with_items:
-    - "{{ user_results['results'] }}"
+  - "{{ user_results['results'] }}"
 
 - name: 修改文件目录权限
   when: item.rc == 0
-  file:
+  ansible.builtin.file:
     path: "{{ item.stdout }}/.kube/"
     state: directory
     recurse: yes
@@ -44,11 +45,11 @@
     group: "{{ item.item }}"
     mode: 0700
   with_items:
-    - "{{ user_results['results'] }}"
+  - "{{ user_results['results'] }}"
 
 - name: 添加非 root 用户 kubectl 命令自动补全
   when: item.rc == 0
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: "{{ item.stdout }}/.bashrc"
     state: present
     regexp: 'kubectl completion'

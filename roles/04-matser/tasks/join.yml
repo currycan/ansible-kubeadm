@@ -1,12 +1,23 @@
-# - pause:
+---
+# - name: 暂停测试
+#   ansible.builtin.pause:
 #     prompt: "暂停, 手动确认继续执行, 测试用。。。"
+
+- name: 停止运行 kubelet
+  ansible.builtin.systemd:
+    name: kubelet
+    daemon_reload: yes
+    state: stopped
+    enabled: true
 
 # master使用kubeadm升级1.18之后 遇到新的node不能添加问题,https://github.com/kubernetes/website/pull/19868/files
 # kubeadm init phase bootstrap-token
-- debug: msg="其他 master 节点加入集群, 可能需要一定时间。。"
+- name: Debug
+  ansible.builtin.debug:
+    msg: "其他 master 节点加入集群, 可能需要一定时间。。"
 - name: 其他 master 节点加入集群
-  shell: >
-    systemctl stop kubelet.service;
+  changed_when: true
+  ansible.builtin.shell: >
     rm -f {{ kubelet_data_dir }}/cpu_manager_state;
     rm -f {{ kubelet_data_dir }}/memory_manager_state;
     rm -f {{ manifest_dir }}/kube-*;
@@ -19,12 +30,14 @@
   register: master_join_rslt
   ignore_errors: true
 
-- debug:
+- name: Debug
+  ansible.builtin.debug::
     var: master_join_rslt.stdout_lines
 
 - name: 其他 master 节点 join 是否成功
-  assert:
+  ansible.builtin.assert:
     that: master_join_rslt is succeeded
     msg: "节点：{{ inventory_hostname }} kubeadm join 失败"
 
-- include_tasks: check_master_status.yml
+- name: 确认新增 master 节点正常运行
+  ansible.builtin.include_tasks: check_master_status.yml

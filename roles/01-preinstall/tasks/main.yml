@@ -1,27 +1,28 @@
-# 安装 containerd
-- include_tasks: containerd.yml
+---
+- name: 安装 containerd
+  ansible.builtin.include_tasks: containerd.yml
   when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
 
-# 安装 docker
-- include_tasks: docker.yml
+- name: 安装 docker
+  ansible.builtin.include_tasks: docker.yml
   when:
     - container_runtime == 'docker'
     - inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
 
-# 安装 etcdctl
-- include_tasks: etcd.yml
+- name: 安装 etcdctl
+  ansible.builtin.include_tasks: etcd.yml
   when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'] | unique))"
 
-# 安装 kubernetes 所有节点依赖
-- include_tasks: kube_cluster.yml
+- name: 安装 kubernetes 所有节点依赖
+  ansible.builtin.include_tasks: kube_cluster.yml
   when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
 
-# 安装 kubernetes master 节点依赖
-- include_tasks: master.yml
+- name: 安装 kubernetes master 节点依赖
+  ansible.builtin.include_tasks: master.yml
   when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)"
 
-# 安装 kubernetes node 节点依赖
-- include_tasks: worker.yml
+- name: 安装 kubernetes node 节点依赖
+  ansible.builtin.include_tasks: worker.yml
   when:
     - inventory_hostname not in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
     - inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)

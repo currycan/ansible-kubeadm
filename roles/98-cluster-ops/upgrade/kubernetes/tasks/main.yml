@@ -1,49 +1,55 @@
-- block:
+---
+- name: kubernetes 升级
+  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
+  block:
   - name: 更新 kubeadm config 版本
-    lineinfile:
+    ansible.builtin.lineinfile:
       path: "{{ kubernetes_etc_dir }}/kubeadm-config.yaml"
       regexp: '^kubernetesVersion'
       line: "kubernetesVersion: v{{ kube_version }}"
 
   - name: "升级第一个 master 节点： {{ inventory_hostname }} 至 v{{ kube_version }}"
+    changed_when: true
     when: inventory_hostname == groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
-    shell: >-
+    ansible.builtin.command: >-
       kubeadm upgrade apply --config={{ kubernetes_etc_dir }}/kubeadm-config.yaml \
-      --ignore-preflight-errors=CoreDNSUnsupportedPlugins \
-      --ignore-preflight-errors=CoreDNSMigration --force
+        --ignore-preflight-errors=CoreDNSUnsupportedPlugins \
+        --ignore-preflight-errors=CoreDNSMigration --force
 
   - name: "升级剩余 master 节点： {{ inventory_hostname }} 至 v{{ kube_version }}"
+    changed_when: true
     when:
-      - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
-      - inventory_hostname != groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
-    shell: >-
-      kubeadm upgrade node {% if kube_version.split('.')[1]|int == 14 %}experimental-control-plane{% endif %} \
-      --ignore-preflight-errors=CoreDNSUnsupportedPlugins \
-      --ignore-preflight-errors=CoreDNSMigration
+    - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
+    - inventory_hostname != groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
+    ansible.builtin.command: >-
+      kubeadm upgrade node {% if kube_version.split('.')[1] | int == 14 %}experimental-control-plane{% endif %} \
+        --ignore-preflight-errors=CoreDNSUnsupportedPlugins \
+        --ignore-preflight-errors=CoreDNSMigration
 
-  - include_tasks: "{{ inventory_dir }}/roles/04-matser/tasks/check_master_status.yml"
+  - name: 确认 master 节点组件运行状态
+    ansible.builtin.include_tasks: "{{ inventory_dir }}/roles/04-matser/tasks/check_master_status.yml"
     when: inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
 
   - name: "升级 worker 节点： {{ inventory_hostname }} 至 v{{ kube_version }}"
+    changed_when: true
     when: inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | unique)
-    shell: >
-      kubeadm upgrade node {% if kube_version.split('.')[1]|int == 14 %}config --kubelet-version v{{ kube_version }}{% endif %} \
+    ansible.builtin.command: >
+      kubeadm upgrade node {% if kube_version.split('.')[1] | int == 14 %}config --kubelet-version v{{ kube_version }}{% endif %} \
         --ignore-preflight-errors=CoreDNSUnsupportedPlugins \
         --ignore-preflight-errors=CoreDNSMigration
 
   - name: 重新启动 kubelet
-    service:
+    ansible.builtin.systemd:
       name: kubelet
       state: restarted
       enabled: yes
 
   - name: 等待 kubelet 件启动
-    wait_for:
+    ansible.builtin.wait_for:
       host: "127.0.0.1"
       port: "{{ item }}"
       delay: 5
       connect_timeout: 60
       timeout: 300
     with_items:
-      - "10248"
-  when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
+    - "10248"
