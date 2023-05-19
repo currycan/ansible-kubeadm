@@ -18,10 +18,6 @@
 - name: 其他 master 节点加入集群
   changed_when: true
   ansible.builtin.shell: >
-    rm -f {{ kubelet_data_dir }}/cpu_manager_state;
-    rm -f {{ kubelet_data_dir }}/memory_manager_state;
-    rm -f {{ manifest_dir }}/kube-*;
-    rm -f {{ manifest_dir }}/etcd.yaml;
     timeout -k 10s 5m {{ master_kubeadm_join }} \
       --control-plane \
       --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
@@ -31,7 +27,7 @@
   ignore_errors: true
 
 - name: Debug
-  ansible.builtin.debug::
+  ansible.builtin.debug:
     var: master_join_rslt.stdout_lines
 
 - name: 其他 master 节点 join 是否成功

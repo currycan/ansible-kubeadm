@@ -83,10 +83,6 @@
   - name: 初始化第一个 master 节点
     changed_when: true
     ansible.builtin.shell: >
-      rm -f {{ kubelet_data_dir }}/cpu_manager_state;
-      rm -f {{ kubelet_data_dir }}/memory_manager_state;
-      rm -f {{ manifest_dir }}/kube-*;
-      rm -f {{ manifest_dir }}/etcd.yaml;
       timeout -k 10s 5m kubeadm init \
         {% if skip_kube_proxy | bool -%}
         --skip-phases=addon/kube-proxy \

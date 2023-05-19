@@ -1,11 +1,12 @@
+---
 # cgroup driver
 cgroup_driver: systemd
 
 cri_socket: >-
   {%- if container_runtime == 'containerd' -%}
-  /run/containerd/containerd.sock
+    /run/containerd/containerd.sock
   {%- else -%}
-  /var/run/dockershim.sock
+    /var/run/dockershim.sock
   {%- endif -%}
 
 # 定义国内加速镜像地址

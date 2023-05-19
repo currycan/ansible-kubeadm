@@ -1,5 +1,6 @@
-# add_masters
-- hosts:
+---
+- name: Add masters
+  hosts:
   - add_masters
   become: true
   # serial: 2
@@ -17,7 +18,8 @@
   - 04-lb
   - 04-matser
 
-- hosts:
+- name: Update etcd
+  hosts:
   - kube_masters
   become: true
   gather_facts: true
@@ -25,7 +27,8 @@
   roles:
   - 98-cluster-ops/update-etcd
 
-- hosts:
+- name: Windup
+  hosts:
   - kube_cluster
   become: true
   gather_facts: true

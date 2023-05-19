@@ -1,5 +1,6 @@
-# add_nodes
-- hosts:
+---
+- name: Add nodes
+  hosts:
   - add_nodes
   become: true
   # serial: 2
@@ -17,7 +18,8 @@
   - 04-lb
   - 04-worker
 
-- hosts:
+- name: Windup
+  hosts:
   - kube_cluster
   become: true
   gather_facts: true

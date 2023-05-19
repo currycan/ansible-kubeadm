@@ -1,4 +1,6 @@
-- hosts:
+---
+- name: Upgrade assert
+  hosts:
   - kube_cluster
   become: true
   serial: 1
@@ -23,8 +25,8 @@
       - "{{ kube_version.split('.')[1]|int - kubeadm_version_output.stdout.split('.')[1]|int }} <= 1"
       msg: "请设置正确的升级版本号, 次版本号只能升一个版本, 不能跨版本升级(比如: 1.13版本只能升级到1.14, 不能直接升级1.15)。"
 
-# backup etcd data
-- hosts:
+- name: Backup cluster
+  hosts:
   - kube_cluster
   become: true
   gather_facts: true
@@ -33,8 +35,8 @@
   - 98-cluster-ops/backup/etcd
   - 98-cluster-ops/backup/kubernetes
 
-# preinstall upgraded kubernetes binary
-- hosts:
+- name: Preinstall upgraded kubernetes binary
+  hosts:
   - kube_cluster
   become: true
   gather_facts: true
@@ -45,8 +47,8 @@
   # 需要和全局变量里的 binary.yml 值保持一致
   - 01-preinstall
 
-# update kubernetes
-- hosts:
+- name: Update kubernetes
+  hosts:
   - kube_cluster
   become: true
   serial: 1

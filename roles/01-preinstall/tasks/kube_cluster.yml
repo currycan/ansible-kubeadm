@@ -9,7 +9,7 @@
   with_items:
     - { src: "{{ cache_dir }}/binary/kubernetes/", dest: "/usr/bin/"}
 
-- name: 添加 kubectl kubeadm 命令自动补全
+- name: 配置 kubectl 和 kubeadm 命令自动补全
   ansible.builtin.lineinfile:
     dest: "{{ ansible_env.HOME }}/.bashrc"
     state: present
@@ -19,7 +19,7 @@
     - kubectl
     - kubeadm
 
-- name: 自动补全kubectl 和 kubeadm 写入 /etc/bash_completion.d/
+- name: Kubectl 和 kubeadm bash completion 写入 /etc/bash_completion.d/
   changed_when: true
   ansible.builtin.shell: >
     {{ item }} completion bash > /etc/bash_completion.d/{{ item }};

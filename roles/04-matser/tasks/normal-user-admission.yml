@@ -2,7 +2,9 @@
 - name: 判断执行用户是否存在
   changed_when: true
   failed_when: false
-  ansible.builtin.action: shell set -o pipefail && /usr/bin/getent passwd {{ item }} | grep {{ item }} | cut -d":" -f6
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    /usr/bin/getent passwd {{ item }} | grep {{ item }} | cut -d":" -f6
   register: user_results
   with_items:
   - "{{ normal_user }}"

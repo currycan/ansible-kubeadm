@@ -1,22 +1,22 @@
 [chrony]
-10.10.10.1 iface=ens192
+10.10.10.1 iface=eth0
 
 [masters]
-10.10.10.1 iface=ens192
-10.10.10.2 iface=ens192
-10.10.10.3 iface=ens192
+10.10.10.1 iface=eth0
+10.10.10.2 iface=eth0
+10.10.10.3 iface=eth0
 
 [add_masters]
 
 [delete_masters]
 
 [nodes]
-10.10.10.4 iface=ens192
-10.10.10.5 iface=ens192
-10.10.10.6 iface=ens192
+10.10.10.4 iface=eth0
+10.10.10.5 iface=eth0
+10.10.10.6 iface=eth0
 
 [add_nodes]
-# 10.10.10.10 iface=ens192
+# 10.10.10.10 iface=eth0
 
 [delete_nodes]
 
@@ -35,6 +35,7 @@ kube_nodes
 [all:vars]
 # 离线文件目录
 cache_dir="/k8s_cache"
+
 # 代理配置
 proxy_server=""
 proxy_user=""
@@ -46,11 +47,11 @@ container_runtime=containerd
 # 开启 proxy, 可访问gcr, 加速下载 GitHub 文件
 enable_proxy=true
 # 不配置代理的本地私有仓库
-local_image_repo="harbor1.local.com, harbor2.local.com"
+local_image_repo="harbor1.local.com,harbor2.local.com"
 
 # etcd 集群安装方式, 堆叠模式(与 master 节点复用)
 # 配置etcd集群域名
-etcd_domain_name="k8s.etcd.local, etcd.local.com"
+etcd_domain_name="k8s.etcd.local,etcd.local.com"
 
 # 集群参数
 cluster_name=kubernetes

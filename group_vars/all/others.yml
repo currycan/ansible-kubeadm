@@ -1,3 +1,4 @@
+---
 # 普通用户, docker/kubectl 准入管理, 非 root 也可以使用kubectl docker 命令
 normal_user:
   - devops

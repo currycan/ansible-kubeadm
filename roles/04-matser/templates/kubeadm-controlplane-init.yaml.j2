@@ -247,11 +247,7 @@ evictionSoftGracePeriod:
   nodefs.inodesFree: 1m
 evictionMinimumReclaim: {}
 failSwapOn: true
-{% if (kube_reserved_enabled is defined and kube_reserved_enabled | bool) or (system_reserved_enabled is defined and system_reserved_enabled | bool) %}
-cpuManagerPolicy: static
-{% else%}
 cpuManagerPolicy: none
-{% endif %}
 # Node 资源预留
 enforceNodeAllocatable:
 - pods

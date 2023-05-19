@@ -1,4 +1,6 @@
-- hosts:
+---
+- name: Cluster setup
+  hosts:
   - kube_cluster
   - chrony
   become: true

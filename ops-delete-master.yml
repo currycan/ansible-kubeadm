@@ -1,4 +1,6 @@
-- hosts:
+---
+- name: Delete masters
+  hosts:
   - delete_masters
   become: true
   serial: 1
@@ -10,7 +12,8 @@
   # - { role: 99-cluster-reset, reset_k8s: true }
   # - { role: 99-cluster-reset, reset_kernel_module: false }
 
-- hosts:
+- name: Update etcd
+  hosts:
   - kube_masters
   become: true
   gather_facts: true
@@ -18,7 +21,8 @@
   roles:
   - 98-cluster-ops/update-etcd
 
-- hosts:
+- name: Windup
+  hosts:
   - kube_cluster
   become: true
   gather_facts: true

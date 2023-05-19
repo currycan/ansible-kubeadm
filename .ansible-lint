@@ -30,7 +30,6 @@ skip_list:
   # - 'var-naming'
   - name[casing]
   - name[missing]
-  - name[template]
   - yaml[comments-indentation]
   # - jinja[spacing]
   # # - fqcn-builtins

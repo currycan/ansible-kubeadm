@@ -1,5 +1,6 @@
-# Tear down nodes
-- hosts:
+---
+- name: Delete nodes
+  hosts:
   - delete_nodes
   become: true
   serial: 1

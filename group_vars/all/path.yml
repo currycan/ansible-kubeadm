@@ -1,3 +1,4 @@
+---
 # containerd
 cni_bin_dir: /opt/cni/bin
 cni_etc_dir: /etc/cni/net.d
@@ -25,7 +26,7 @@ kubernetes_etc_dir: /etc/kubernetes
 kubernetes_log_dir: /var/log/kubernetes
 kubelet_data_dir: /var/lib/kubelet
 manifest_dir: "{{ kubernetes_etc_dir }}/manifests"
-addons_dir: "{{kubernetes_etc_dir}}/addons"
+addons_dir: "{{ kubernetes_etc_dir }}/addons"
 
 # cert paths
 k8s_pki_dir: "{{ kubernetes_etc_dir }}/pki"

@@ -43,7 +43,7 @@
 
     - name: Debug
       ansible.builtin.debug:
-        ansible.builtin.var: master_kubeadm_join_cmd.stdout_lines
+        var: master_kubeadm_join_cmd.stdout_lines
 
     - name: 获取 kubeadm join 命令
       ansible.builtin.set_fact:

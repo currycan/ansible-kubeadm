@@ -112,7 +112,6 @@ net.ipv4.route.flush = 1
 #tcp_keepalive_time+ tcp_keepalive_interval * tcp_keepalive_max_retry + 2msl取整
 #https://www.xinmeow.com/2020/05/04/iptables-nf_conntrack-%E6%9D%A1%E7%9B%AE%E7%9A%84%E8%80%81%E5%8C%96%E6%97%B6%E9%97%B4%E5%9B%A0%E8%AF%A5%E8%BF%9E%E6%8E%A5%E5%8F%91%E7%94%9F%E4%B8%A2%E5%8C%85%E8%80%8C%E5%8F%98%E7%9F%AD%EF%BC%8C/
 net.netfilter.nf_conntrack_tcp_timeout_max_retrans = 720
-net.ipv4.rt_cache_rebuild_count = -1
 
 vm.max_map_count = 655360
 vm.swappiness = 0 # 禁止使用 swap 空间,只有当系统 OOM 时才允许使用它
@@ -120,9 +119,7 @@ vm.overcommit_memory = 1 # 不检查物理内存是否够用
 vm.panic_on_oom = 0 # 开启 OOM
 vm.oom_dump_tasks = 1
 # 磁盘 IO 优化: https://www.cnblogs.com/276815076/p/5687814.html
-vm.dirty_background_bytes = 0
 vm.dirty_background_ratio = 5
-vm.dirty_bytes = 0
 vm.min_free_kbytes = {{ (ansible_memtotal_mb*1024/100*5)|int }}
 vm.dirty_expire_centisecs = 50
 vm.dirty_ratio = 60

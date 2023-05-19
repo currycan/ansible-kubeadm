@@ -31,6 +31,8 @@ set -eu
 #     esac
 # done
 
+# k8sVersion=1.18.20
+
 BASE_DIR=/k8s_cache
 BINARY_DIR=${BASE_DIR}/binary
 IMAGE_DIR=${BASE_DIR}/images
@@ -62,8 +64,10 @@ enabled=1
 gpgcheck=0
 EOF
     # docker
-    yum install -y yum-utils
-    yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+    if [ ! -f /etc/yum.repos.d/docker-ce.repo ];then
+        yum install -y yum-utils
+        yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+    fi
     # kubernetes
     cat <<EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
@@ -155,6 +159,7 @@ function download_containerd_binary (){
         tar zxf cri-containerd-cni-${CONTAINERD_VERSION}-linux-amd64.tar.gz -C ${BINARY_DIR}/containerd
         rm -rf ${BINARY_DIR}/containerd/opt/containerd
         rm -rf ${BINARY_DIR}/containerd/etc
+        rm -f ${BINARY_DIR}/containerd/*.txt
     fi
     # crictl
     if [ ! -f ${BINARY_DIR}/crictl/crictl ];then
@@ -172,6 +177,7 @@ function download_docker_binary (){
         curl -fSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz
         mkdir -p ${BINARY_DIR}/docker
         tar zxf docker-${DOCKER_VERSION}.tgz -C ${BINARY_DIR}
+        yes | cp -a ${BINARY_DIR}/containerd/usr/local/sbin/runc ${BINARY_DIR}/docker/
     fi
 }
 
@@ -218,36 +224,36 @@ function download_images (){
     chmod 755 /usr/local/bin/docker
     # master nodes
     image_repo="registry.cn-hangzhou.aliyuncs.com/google_containers"
-    master_images="kube-apiserver:v${KUBE_VERSION} kube-scheduler:v${KUBE_VERSION} kube-controller-manager:v${KUBE_VERSION}"
+    master_images="kube-apiserver:v${KUBE_VERSION} kube-scheduler:v${KUBE_VERSION} kube-controller-manager:v${KUBE_VERSION} etcd:${ETCD_VERSION}"
     for img in ${master_images};
     do
         docker pull ${image_repo}/${img}
     done
     docker pull ghcr.io/kube-vip/kube-vip:v${KUBE_VIP_VERSION}
     docker save -o ${IMAGE_DIR}/master.tar.gz \
-        registry.cn-hangzhou.aliyuncs.com/google_containers/kube-apiserver:v${KUBE_VERSION} \
-        registry.cn-hangzhou.aliyuncs.com/google_containers/kube-scheduler:v${KUBE_VERSION} \
-        registry.cn-hangzhou.aliyuncs.com/google_containers/kube-controller-manager:v${KUBE_VERSION} \
-        registry.cn-hangzhou.aliyuncs.com/google_containers/etcd:${ETCD_VERSION} \
+        ${image_repo}/kube-apiserver:v${KUBE_VERSION} \
+        ${image_repo}/kube-scheduler:v${KUBE_VERSION} \
+        ${image_repo}/kube-controller-manager:v${KUBE_VERSION} \
+        ${image_repo}/etcd:${ETCD_VERSION} \
         ghcr.io/kube-vip/kube-vip:v${KUBE_VIP_VERSION}
 
     # all nodes
     docker pull ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION}
     docker pull ${image_repo}/kube-proxy:v${KUBE_VERSION}
     docker pull ${image_repo}/pause:${PAUSE_VERSION}
-    docker pull k8s.gcr.io/dns/k8s-dns-node-cache:1.16.0
+    docker pull registry.k8s.io/dns/k8s-dns-node-cache:1.22.20
     docker save -o ${IMAGE_DIR}/all.tar.gz \
-        registry.cn-hangzhou.aliyuncs.com/google_containers/kube-proxy:v${KUBE_VERSION} \
-        registry.cn-hangzhou.aliyuncs.com/google_containers/pause:${PAUSE_VERSION} \
+        ${image_repo}/kube-proxy:v${KUBE_VERSION} \
+        ${image_repo}/pause:${PAUSE_VERSION} \
         ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION} \
-        k8s.gcr.io/dns/k8s-dns-node-cache:1.16.0
+        registry.k8s.io/dns/k8s-dns-node-cache:1.22.20
 
     # worker nodes
     docker pull coredns/coredns:${COREDNS_VERSION}
-    docker pull k8s.gcr.io/cpa/cluster-proportional-autoscaler-amd64:1.8.3
+    docker pull registry.k8s.io/cpa/cluster-proportional-autoscaler:v1.8.8
     docker save -o ${IMAGE_DIR}/worker.tar.gz \
         coredns/coredns:${COREDNS_VERSION} \
-        k8s.gcr.io/cpa/cluster-proportional-autoscaler-amd64:1.8.3
+        registry.k8s.io/cpa/cluster-proportional-autoscaler:v1.8.8
 }
 
 function version(){
@@ -276,7 +282,6 @@ function version(){
         # COREDNS_VERSION=`curl -sSf https://github.com/coredns/coredns/tags | grep "releases/tag/" | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
         COREDNS_VERSION=`/tmp/kubeadm config images list | grep coredns | cut -d':' -f2 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
         # docker
-        # DOCKER_VERSION=`curl -sSf https://download.docker.com/linux/static/stable/x86_64/ | grep -e docker- | tail -n 1 | cut -d">" -f1 | grep -oP "[a-zA-Z]*[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
         # https://kops.sigs.k8s.io/releases/1.20-notes/
         if [ `echo ${KUBE_VERSION} | cut -d'.' -f2` -le 16 ]; then
             DOCKER_VERSION=18.09.9
@@ -285,7 +290,7 @@ function version(){
         elif [ `echo ${KUBE_VERSION} | cut -d'.' -f2` -le 23 ]; then
             DOCKER_VERSION=20.10.22
         else
-            DOCKER_VERSION=20.10.22
+            DOCKER_VERSION=`curl -sSf https://download.docker.com/linux/static/stable/x86_64/ | grep -e docker- | tail -n 1 | cut -d">" -f1 | grep -oP "[a-zA-Z]*[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
         fi
         # containerd
         CONTAINERD_VERSION=`curl -sSf https://github.com/containerd/containerd/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
@@ -329,13 +334,13 @@ function download () {
     version
     download_kernel_rpm
     download_chrony_rpm
+    download_container_runtime_rpm
     download_dependence_rpm
     download_containerd_binary
     download_docker_binary
     download_helm_binary
     download_etcd_binary
     download_kubernetes_binary
-    download_cfssl_binary
     download_images
     set_version
 }
