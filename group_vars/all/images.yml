@@ -10,8 +10,7 @@ images:
     type: master
     enable: "{%- if ((groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1) and lb_mode == 'kube-vip' -%}true{% else %}false{%- endif -%}"
   lvscare:
-    # name: "ghcr.io/labring/lvscare:v4.1.3"
-    name: "ghcr.io/labring/lvscare:v4.0.0"
+    name: "ghcr.io/labring/lvscare:v4.1.3"
     type: master
     enable: "{%- if ((groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1) and lb_mode == 'kube-lvscare' -%}true{% else %}false{%- endif -%}"
 

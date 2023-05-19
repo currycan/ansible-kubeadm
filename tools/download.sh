@@ -301,7 +301,8 @@ function version(){
         # kube-vip
         KUBE_VIP_VERSION=`curl -sSf https://api.github.com/repos/kube-vip/kube-vip/releases | grep tag_name | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
         # kube-lvscare
-        KUBE_LVSCARE_VERSION=`curl -sSf https://github.com/labring/lvscare/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+        # KUBE_LVSCARE_VERSION=`curl -sSf https://github.com/labring/lvscare/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+        KUBE_LVSCARE_VERSION=4.1.3
     fi
     echo 内核版本: $KERNEL_OFFLIE_VERSION
     echo etcd 版本: $ETCD_VERSION
