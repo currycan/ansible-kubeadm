@@ -91,7 +91,7 @@ spec:
         fsGroup: 65534
       containers:
       - name: autoscaler
-        image: "{{ images.autoscaler.name }}"
+        image: "{{ autoscaler_image }}"
         resources:
           requests:
             cpu: "20m"

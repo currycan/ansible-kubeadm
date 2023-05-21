@@ -43,6 +43,8 @@ CONTIANERD_RPM_DIR=${BASE_DIR}/containerd
 DOCKER_RPM_DIR=${BASE_DIR}/docker
 KUBERNETES_RPM_DIR=${BASE_DIR}/kubernetes
 
+KUBE_IMAGE_REPO="registry.cn-hangzhou.aliyuncs.com/google_containers"
+
 function create_dir (){
     mkdir -p \
         ${KERNEL_RPM_DIR} \
@@ -223,87 +225,83 @@ function download_images (){
     cp ${BINARY_DIR}/docker/docker /usr/local/bin/
     chmod 755 /usr/local/bin/docker
     # master nodes
-    image_repo="registry.cn-hangzhou.aliyuncs.com/google_containers"
     master_images="kube-apiserver:v${KUBE_VERSION} kube-scheduler:v${KUBE_VERSION} kube-controller-manager:v${KUBE_VERSION} etcd:${ETCD_VERSION}"
     for img in ${master_images};
     do
-        docker pull ${image_repo}/${img}
+        docker pull ${KUBE_IMAGE_REPO}/${img}
     done
     docker pull ghcr.io/kube-vip/kube-vip:v${KUBE_VIP_VERSION}
     docker save -o ${IMAGE_DIR}/master.tar.gz \
-        ${image_repo}/kube-apiserver:v${KUBE_VERSION} \
-        ${image_repo}/kube-scheduler:v${KUBE_VERSION} \
-        ${image_repo}/kube-controller-manager:v${KUBE_VERSION} \
-        ${image_repo}/etcd:${ETCD_VERSION} \
+        ${KUBE_IMAGE_REPO}/kube-apiserver:v${KUBE_VERSION} \
+        ${KUBE_IMAGE_REPO}/kube-scheduler:v${KUBE_VERSION} \
+        ${KUBE_IMAGE_REPO}/kube-controller-manager:v${KUBE_VERSION} \
+        ${KUBE_IMAGE_REPO}/etcd:${ETCD_VERSION} \
         ghcr.io/kube-vip/kube-vip:v${KUBE_VIP_VERSION}
 
     # all nodes
     docker pull ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION}
-    docker pull ${image_repo}/kube-proxy:v${KUBE_VERSION}
-    docker pull ${image_repo}/pause:${PAUSE_VERSION}
-    docker pull registry.k8s.io/dns/k8s-dns-node-cache:1.22.20
+    docker pull ${KUBE_IMAGE_REPO}/kube-proxy:v${KUBE_VERSION}
+    docker pull ${KUBE_IMAGE_REPO}/pause:${PAUSE_VERSION}
+    docker pull ${KUBE_IMAGE_REPO}/coredns:${COREDNS_VERSION}
+    docker pull registry.k8s.io/dns/k8s-dns-node-cache:${DNS_NODE_CACHE_VERSION}
     docker save -o ${IMAGE_DIR}/all.tar.gz \
-        ${image_repo}/kube-proxy:v${KUBE_VERSION} \
-        ${image_repo}/pause:${PAUSE_VERSION} \
+        ${KUBE_IMAGE_REPO}/kube-proxy:v${KUBE_VERSION} \
+        ${KUBE_IMAGE_REPO}/pause:${PAUSE_VERSION} \
+        ${KUBE_IMAGE_REPO}/coredns:${COREDNS_VERSION} \
         ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION} \
-        registry.k8s.io/dns/k8s-dns-node-cache:1.22.20
+        registry.k8s.io/dns/k8s-dns-node-cache:${DNS_NODE_CACHE_VERSION}
 
     # worker nodes
-    docker pull coredns/coredns:${COREDNS_VERSION}
-    docker pull registry.k8s.io/cpa/cluster-proportional-autoscaler:v1.8.8
+    docker pull registry.k8s.io/cpa/cluster-proportional-autoscaler:v${AUTOSCALER_VERSION}
     docker save -o ${IMAGE_DIR}/worker.tar.gz \
-        coredns/coredns:${COREDNS_VERSION} \
-        registry.k8s.io/cpa/cluster-proportional-autoscaler:v1.8.8
+        registry.k8s.io/cpa/cluster-proportional-autoscaler:v${AUTOSCALER_VERSION}
 }
 
 function version(){
-    if [ -f ${BASE_DIR}/version.yml ];then
-        components="kernel_offlie_version etcd_version kube_version containerd_version docker_version helm_version pause_version coredns_version"
-        for cm in ${components};
-        do
-            export ${cm^^}=`grep $cm ${BASE_DIR}/version.yml | cut -d' ' -f2`
-        done
+    # kernel
+    KERNEL_OFFLIE_VERSION=`yum --disablerepo="*" --enablerepo=kernel-longterm-4.19 list kernel-longterm --showduplicates | sort -r | grep kernel-longterm | head -1 | awk -F' ' '{print $2}' | awk -F'.el7' '{print $1}'`
+    # kubernetes
+    KUBE_VERSION=${k8sVersion:-`curl -sSf https://storage.googleapis.com/kubernetes-release/release/stable.txt | grep -v % | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`}
+    # download kubeadm to get component version
+    # curl -fSLO /tmp/kubeadm https://dl.k8s.io/v${KUBE_VERSION}/bin/linux/amd64/kubeadm
+    curl -fSLo /tmp/kubeadm https://storage.googleapis.com/kubernetes-release/release/v${KUBE_VERSION}/bin/linux/amd64/kubeadm
+    chmod 755 /tmp/kubeadm
+    # etcd
+    # ETCD_VERSION=`curl -sSf https://github.com/etcd-io/etcd/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    ETCD_VERSION=`/tmp/kubeadm config images list | grep etcd | cut -d':' -f2 | cut -d'-' -f1`
+    # infrastructure pause image
+    # PAUSE_VERSION=`curl -sSf https://github.com/kubernetes/kubernetes/blob/master/build/pause/CHANGELOG.md | grep "</h1>" | head -n 2 | grep [0-9]\d*.[0-9]\d* -oP | tail -n 1`
+    PAUSE_VERSION=`/tmp/kubeadm config images list | grep pause | cut -d':' -f2`
+    # coreDNS
+    # COREDNS_VERSION=`curl -sSf https://github.com/coredns/coredns/tags | grep "releases/tag/" | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    COREDNS_VERSION=`/tmp/kubeadm config images list | grep coredns | cut -d':' -f2 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
+    # docker
+    # https://kops.sigs.k8s.io/releases/1.20-notes/
+    if [ `echo ${KUBE_VERSION} | cut -d'.' -f2` -le 16 ]; then
+        DOCKER_VERSION=18.09.9
+    elif [ `echo ${KUBE_VERSION} | cut -d'.' -f2` -le 20 ]; then
+        DOCKER_VERSION=19.03.15
+    elif [ `echo ${KUBE_VERSION} | cut -d'.' -f2` -le 23 ]; then
+        DOCKER_VERSION=20.10.22
     else
-        # kernel
-        KERNEL_OFFLIE_VERSION=`yum --disablerepo="*" --enablerepo=kernel-longterm-4.19 list kernel-longterm --showduplicates | sort -r | grep kernel-longterm | head -1 | awk -F' ' '{print $2}' | awk -F'.el7' '{print $1}'`
-        # kubernetes
-        KUBE_VERSION=${k8sVersion:-`curl -sSf https://storage.googleapis.com/kubernetes-release/release/stable.txt | grep -v % | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`}
-        # download kubeadm to get component version
-        # curl -fSLO /tmp/kubeadm https://dl.k8s.io/v${KUBE_VERSION}/bin/linux/amd64/kubeadm
-        curl -fSLo /tmp/kubeadm https://storage.googleapis.com/kubernetes-release/release/v${KUBE_VERSION}/bin/linux/amd64/kubeadm
-        chmod 755 /tmp/kubeadm
-        # etcd
-        # ETCD_VERSION=`curl -sSf https://github.com/etcd-io/etcd/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
-        ETCD_VERSION=`/tmp/kubeadm config images list | grep etcd | cut -d':' -f2 | cut -d'-' -f1`
-        # infrastructure pause image
-        # PAUSE_VERSION=`curl -sSf https://github.com/kubernetes/kubernetes/blob/master/build/pause/CHANGELOG.md | grep "</h1>" | head -n 2 | grep [0-9]\d*.[0-9]\d* -oP | tail -n 1`
-        PAUSE_VERSION=`/tmp/kubeadm config images list | grep pause | cut -d':' -f2`
-        # coreDNS
-        # COREDNS_VERSION=`curl -sSf https://github.com/coredns/coredns/tags | grep "releases/tag/" | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
-        COREDNS_VERSION=`/tmp/kubeadm config images list | grep coredns | cut -d':' -f2 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
-        # docker
-        # https://kops.sigs.k8s.io/releases/1.20-notes/
-        if [ `echo ${KUBE_VERSION} | cut -d'.' -f2` -le 16 ]; then
-            DOCKER_VERSION=18.09.9
-        elif [ `echo ${KUBE_VERSION} | cut -d'.' -f2` -le 20 ]; then
-            DOCKER_VERSION=19.03.15
-        elif [ `echo ${KUBE_VERSION} | cut -d'.' -f2` -le 23 ]; then
-            DOCKER_VERSION=20.10.22
-        else
-            DOCKER_VERSION=`curl -sSf https://download.docker.com/linux/static/stable/x86_64/ | grep -e docker- | tail -n 1 | cut -d">" -f1 | grep -oP "[a-zA-Z]*[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
-        fi
-        # containerd
-        CONTAINERD_VERSION=`curl -sSf https://github.com/containerd/containerd/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
-        # crictl
-        CRICTL_VERSION=`curl -sSf https://github.com/kubernetes-sigs/cri-tools/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
-        # helm
-        HELM_VERSION=`curl -sSf https://github.com/helm/helm/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
-        # kube-vip
-        KUBE_VIP_VERSION=`curl -sSf https://api.github.com/repos/kube-vip/kube-vip/releases | grep tag_name | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
-        # kube-lvscare
-        # KUBE_LVSCARE_VERSION=`curl -sSf https://github.com/labring/lvscare/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
-        KUBE_LVSCARE_VERSION=4.1.3
+        DOCKER_VERSION=`curl -sSf https://download.docker.com/linux/static/stable/x86_64/ | grep -e docker- | tail -n 1 | cut -d">" -f1 | grep -oP "[a-zA-Z]*[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
     fi
+    # containerd
+    CONTAINERD_VERSION=`curl -sSf https://github.com/containerd/containerd/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    # crictl
+    CRICTL_VERSION=`curl -sSf https://github.com/kubernetes-sigs/cri-tools/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    # helm
+    HELM_VERSION=`curl -sSf https://github.com/helm/helm/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    # autoscaler
+    AUTOSCALER_VERSION=`curl -sSf https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/tags | grep "releases/tag/" | grep -v chart | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    # dns-node-cache
+    DNS_NODE_CACHE_VERSION=`curl -sSf https://github.com/kubernetes/dns/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    # kube-vip
+    KUBE_VIP_VERSION=`curl -sSf https://api.github.com/repos/kube-vip/kube-vip/releases | grep tag_name | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
+    # kube-lvscare
+    # KUBE_LVSCARE_VERSION=`curl -sSf https://github.com/labring/lvscare/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    KUBE_LVSCARE_VERSION=4.1.3
+
     echo 内核版本: $KERNEL_OFFLIE_VERSION
     echo etcd 版本: $ETCD_VERSION
     echo kubernetes 版本: $KUBE_VERSION
@@ -312,6 +310,8 @@ function version(){
     echo helm 版本: $HELM_VERSION
     echo pause_version 版本: $PAUSE_VERSION
     echo coreDns 版本: $COREDNS_VERSION
+    echo autoscaler 版本: $AUTOSCALER_VERSION
+    echo dns-node-cache 版本: $DNS_NODE_CACHE_VERSION
     echo kube-vip 版本: $KUBE_VIP_VERSION
     echo kube-lvscare 版本: $KUBE_LVSCARE_VERSION
 }
@@ -323,10 +323,14 @@ function set_version(){
     echo containerd_version: ${CONTAINERD_VERSION} >> ${BASE_DIR}/version.yml
     echo docker_version: ${DOCKER_VERSION} >> ${BASE_DIR}/version.yml
     echo helm_version: ${HELM_VERSION} >> ${BASE_DIR}/version.yml
-    echo pause_version: ${PAUSE_VERSION} >> ${BASE_DIR}/version.yml
-    echo coredns_version: ${COREDNS_VERSION} >> ${BASE_DIR}/version.yml
-    echo kube_vip_version: ${KUBE_VIP_VERSION} >> ${BASE_DIR}/version.yml
-    echo kube_lvscare_version: ${KUBE_LVSCARE_VERSION} >> ${BASE_DIR}/version.yml
+
+    echo kube_image_repository: ${KUBE_IMAGE_REPO} >> ${BASE_DIR}/version.yml
+    echo pause_image: ${KUBE_IMAGE_REPO}/pause:${PAUSE_VERSION} >> ${BASE_DIR}/version.yml
+    echo coredns_image: ${KUBE_IMAGE_REPO}/coredns:${COREDNS_VERSION} >> ${BASE_DIR}/version.yml
+    echo autoscaler_image: registry.k8s.io/cpa/cluster-proportional-autoscaler:v${AUTOSCALER_VERSION} >> ${BASE_DIR}/version.yml
+    echo dns_node_cache_image: registry.k8s.io/dns/k8s-dns-node-cache:${DNS_NODE_CACHE_VERSION} >> ${BASE_DIR}/version.yml
+    echo kube_vip_image: ghcr.io/kube-vip/kube-vip:v${KUBE_VIP_VERSION} >> ${BASE_DIR}/version.yml
+    echo kube_lvscare_image: ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION} >> ${BASE_DIR}/version.yml
 }
 
 function download () {

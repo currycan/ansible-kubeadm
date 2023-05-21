@@ -145,7 +145,7 @@ spec:
         operator: "Exists"
       containers:
       - name: node-cache
-        image: "{{ images.dns_node_cache.name }}"
+        image: "{{ dns_node_cache_image }}"
         resources:
           requests:
             cpu: 25m

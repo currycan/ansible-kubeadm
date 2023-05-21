@@ -36,7 +36,7 @@ spec:
       value: "{{ lb_apiserver_ip }}"
     - name: prometheus_server
       value: :2112
-    image: "{{ images.kube_vip.name }}"
+    image: "{{ kube_vip_image }}"
     imagePullPolicy: Always
     name: lb-kube-vip
     resources:

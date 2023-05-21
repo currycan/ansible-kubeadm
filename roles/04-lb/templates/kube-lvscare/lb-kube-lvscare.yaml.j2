@@ -26,7 +26,7 @@ spec:
     env:
     - name: LVSCARE_NODE_IP
       value: {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}
-    image: "{{ images.lvscare.name }}"
+    image: "{{ kube_lvscare_image }}"
     imagePullPolicy: IfNotPresent
     name: lb-kube-lvscare
     resources: {}

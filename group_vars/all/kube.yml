@@ -1,10 +1,4 @@
 ---
-# kubernetes各组件镜像仓库前缀, 离线镜像包里的镜像是：registry.cn-hangzhou.aliyuncs.com/google_containers(registry.k8s.io init时会报错)
-# kube_image_repository: registry.k8s.io
-kube_image_repository: registry.cn-hangzhou.aliyuncs.com/google_containers
-# kube_image_repository: registry.aliyuncs.com/k8sxio
-# k8s 集群 master 节点证书配置, 可以添加多个ip和域名（比如增加公网ip和域名）
-
 # kubelet 参数
 kubelet_max_pods: 100
 

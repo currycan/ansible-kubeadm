@@ -60,12 +60,12 @@ data:
   Corefile: |
     .:53 {
         errors
-{% if (coredns_version is version('1.6.0', '>=')) %}
+{% if (coredns_image.split(':')[1] is version('1.6.0', '>=')) %}
         health {
           lameduck 5s
         }
         ready
-{% elif (coredns_version is version('1.5.0', '>=') and coredns_version is version('1.6.0', '<'))  %}
+{% elif (coredns_image.split(':')[1] is version('1.5.0', '>=') and coredns_image.split(':')[1] is version('1.6.0', '<'))  %}
         health
         ready
 {% else %}
@@ -73,20 +73,20 @@ data:
 {% endif %}
         kubernetes {{ cluster_domain_name }} in-addr.arpa ip6.arpa {
           pods insecure
-{% if (coredns_version is version('1.5.0', '<')) %}
+{% if (coredns_image.split(':')[1] is version('1.5.0', '<')) %}
           upstream
 {% endif %}
-{% if (coredns_version is version('1.6.0', '>=')) %}
+{% if (coredns_image.split(':')[1] is version('1.6.0', '>=')) %}
           ttl 30
 {% endif %}
           fallthrough in-addr.arpa ip6.arpa
         }
         prometheus :9153
-{% if (coredns_version is version('1.5.0', '<')) %}
+{% if (coredns_image.split(':')[1] is version('1.5.0', '<')) %}
         proxy . /etc/resolv.conf
 {% else %}
         forward . /etc/resolv.conf {
-{% if (coredns_version is version('1.6.9', '>=')) %}
+{% if (coredns_image.split(':')[1] is version('1.6.9', '>=')) %}
           max_concurrent 1000
 {% endif %}
         }
@@ -159,7 +159,7 @@ spec:
             topologyKey: kubernetes.io/hostname
       containers:
       - name: coredns
-        image: "{{ images.coredns.name }}"
+        image: "{{ coredns_image }}"
         imagePullPolicy: IfNotPresent
         resources:
           limits:
@@ -199,7 +199,7 @@ spec:
           timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 5
-{% if (coredns_version is version('1.5.0', '>')) %}
+{% if (coredns_image.split(':')[1] is version('1.5.0', '>')) %}
         readinessProbe:
           httpGet:
             path: /ready
