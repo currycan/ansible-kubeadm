@@ -1,6 +1,6 @@
 ---
 name: Enhancement Request
-about: Suggest an enhancement to the Kubespray project
+about: Suggest an enhancement to the ansible-kubeadm project
 labels: kind/feature
 
 ---

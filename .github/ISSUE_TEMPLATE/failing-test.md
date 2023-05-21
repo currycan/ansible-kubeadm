@@ -1,11 +1,11 @@
 ---
 name: Failing Test
-about: Report test failures in Kubespray CI jobs
+about: Report test failures in ansible-kubeadm CI jobs
 labels: kind/failing-test
 
 ---
 
-<!-- Please only use this template for submitting reports about failing tests in Kubespray CI jobs -->
+<!-- Please only use this template for submitting reports about failing tests in ansible-kubeadm CI jobs -->
 
 **Which jobs are failing**:
 

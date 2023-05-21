@@ -21,7 +21,7 @@ explain why.
 - **Version of Python** (`python --version`):
 
 
-**Kubespray version (commit) (`git rev-parse --short HEAD`):**
+**ansible-kubeadm version (commit) (`git rev-parse --short HEAD`):**
 
 
 **Network plugin used**:
