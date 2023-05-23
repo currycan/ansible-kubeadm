@@ -1,4 +1,19 @@
 ---
+- name: 添加 kube-apiserver 域名到 hosts 文件中
+  when:
+    - (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1
+  ansible.builtin.blockinfile:
+    path: "/etc/hosts"
+    block: |-
+      {%- for domain in kube_master_external_domain.split(',') %}
+      {{ lb_apiserver_ip }} {{ domain | trim }}
+      {%- endfor %}
+    mode: 0644
+    state: present
+    create: true
+    backup: true
+    marker: "# Ansible kube-apiserver domain {mark}"
+
 - name: 确认 LB 服务是否正常运行
   when:
     - (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1

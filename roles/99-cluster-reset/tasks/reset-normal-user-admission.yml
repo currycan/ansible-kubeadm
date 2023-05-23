@@ -1,6 +1,5 @@
 ---
 - name: 清理 kubectl completion env
-  when: item.rc == 0
   ansible.builtin.lineinfile:
     dest: "/home/{{ item }}/.bashrc"
     state: absent
@@ -9,7 +8,6 @@
   - "{{ normal_user }}"
 
 - name: 删除 kubeconfig 认证文件
-  when: item.rc == 0
   ansible.builtin.file:
     path: "/home/{{ item }}/.kube"
     state: absent

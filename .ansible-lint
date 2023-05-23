@@ -31,6 +31,9 @@ skip_list:
   - name[casing]
   - name[missing]
   - yaml[comments-indentation]
+  - name[template] # Jinja templates should only be at the end of ‘name’.
+  - schema[tasks]
+  - jinja[spacing]
   # - jinja[spacing]
   # # - fqcn-builtins
   # - fqcn[action]

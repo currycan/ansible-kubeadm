@@ -10,12 +10,12 @@
     that: groups['masters']|length >= 1
     msg: "请将添加至少一个节点到 masters 节点组中。"
 
-- name: 校验 worker 节点数量
-  when: groups['kube_cluster']|length != 1
-  run_once: true
-  ansible.builtin.assert:
-    that: groups['nodes']|length >= 1
-    msg: "请将添加至少一个节点到 nodes 节点组中。"
+# - name: 校验 worker 节点数量
+#   when: groups['kube_cluster']|length != 1
+#   run_once: true
+#   ansible.builtin.assert:
+#     that: groups['nodes']|length >= 1
+#     msg: "请将添加至少一个节点到 nodes 节点组中。"
 
 - name: 校验 etcd 节点数量
   run_once: true

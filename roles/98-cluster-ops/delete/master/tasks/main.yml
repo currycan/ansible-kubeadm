@@ -15,13 +15,13 @@
 - name: 校验现有 master 节点数量
   run_once: true
   ansible.builtin.assert:
-    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) > 1
-    msg: "Master 节点数量大于 1 才可进行 master 节点移除操作。"
+    that: groups['kube_masters'] | difference(groups['delete_masters']) | unique | length >= 1
+    msg: "移除 master 节点后, 至少保证有一个 master 节点运行才可进行 master 节点移除操作。"
 
 - name: 校验移除 master 节点后剩余 master 节点数量
   run_once: true
   ansible.builtin.assert:
-    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) is odd
+    that: groups['kube_masters'] | difference(groups['delete_masters']) | unique | length is odd
     msg: "移除 master 节点后, 剩余 master 节点只能为奇数个, 当前 {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | length }} 个, 请修改 master 节点数量至奇数个。"
 
 - name: 刷新集群 master 节点状态
@@ -29,6 +29,7 @@
   changed_when: true
   ansible.builtin.command: >
     kubeadm reset phase update-cluster-status
+    kubeadm upgrade node phase kubelet-config
 
 - name: 删除 master 节点组件相关文件
   ansible.builtin.file:

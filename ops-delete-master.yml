@@ -7,8 +7,8 @@
   gather_facts: true
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   roles:
-  - 98-cluster-ops/delete/master
   - 98-cluster-ops/delete/etcd
+  - 98-cluster-ops/delete/master
   # - { role: 99-cluster-reset, reset_k8s: true }
   # - { role: 99-cluster-reset, reset_kernel_module: false }
 
@@ -28,4 +28,5 @@
   gather_facts: true
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   roles:
+  - 04-lb
   - 04-windup

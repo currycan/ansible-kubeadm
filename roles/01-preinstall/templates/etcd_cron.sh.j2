@@ -5,7 +5,7 @@ set -e
 :  ${etcd_cert_healthcheck_client:="{{ etcd_pki_dir }}/healthcheck-client.crt"}
 :  ${etcd_cert_healthcheck_client_key:="{{ etcd_pki_dir }}/healthcheck-client.key"}
 :  ${etcd_ca:="{{ etcd_pki_dir }}/ca.crt"}
-:  ${endpoints:="{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)| unique %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}"}
+:  ${endpoints:="{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}"}
 
 bak_prefix='etcd-'
 cmd_suffix='date +%Y-%m-%d-%H:%M'

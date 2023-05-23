@@ -34,4 +34,5 @@
   gather_facts: true
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   roles:
+  - 04-lb
   - 04-windup

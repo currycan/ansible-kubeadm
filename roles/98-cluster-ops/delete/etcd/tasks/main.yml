@@ -2,14 +2,14 @@
 - name: 校验删除 etcd 节点数量
   run_once: true
   ansible.builtin.assert:
-    that: (groups['delete_masters'] | unique)|length > 0
+    that: groups['delete_masters'] | unique | length > 0
     msg: " 未配置删除 etcd 节点!"
 
 - name: 校验 etcd 节点数量
   run_once: true
   ansible.builtin.assert:
-    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique)|length > 1
-    msg: "Etcd 节点数量大于 1 才可进行 etcd 节点移除操作。"
+    that: groups['kube_masters'] | difference(groups['delete_masters']) | unique | length >= 1
+    msg: "移除 etcd 节点后, 至少保证有一个 etcd 节点运行才可进行 etcd 节点移除操作。"
 
 - name: 校验将被移除的 etcd 节点是否在原 etcd 组中
   run_once: true
@@ -18,22 +18,16 @@
     msg: "当前节点: {{ item }}, 并未在 etcd 组中, 不需要进行移除操作。"
   with_items: "{{ groups['delete_masters'] }}"
 
-- name: 校验现有 etcd 节点数量
-  run_once: true
-  ansible.builtin.assert:
-    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) > 1
-    msg: "Etcd 节点数量大于 1 才可进行 etcd 节点移除操作。"
-
 - name: 校验移除 etcd 节点后剩余 etcd 节点数量
   run_once: true
   ansible.builtin.assert:
-    that: (groups['kube_masters'] | difference(groups['delete_masters']) | unique | length) is odd
+    that: groups['kube_masters'] | difference(groups['delete_masters']) | unique | length is odd
     msg: "移除 etcd 节点后, 剩余 etcd 节点只能为奇数个, 当前 {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | length }} 个, 请修改 etcd 节点数量至奇数个。"
 
 - name: 获取将要移除的 etcd 节点 member id
   changed_when: true
   failed_when: false
-  ansible.builtin.command: >-
+  ansible.builtin.shell: >-
     set -o pipefail;
     etcdctl member list | grep {{ inventory_hostname }} | cut -d',' -f1
   environment:
@@ -52,7 +46,6 @@
   changed_when: true
   failed_when: false
   ansible.builtin.shell: >
-    set -o pipefail;
     etcdctl member remove {{ etcd_member_id.stdout }}
   environment:
     ETCDCTL_CERT: "{{ etcd_pki_dir }}/healthcheck-client.crt"
@@ -60,8 +53,6 @@
     ETCDCTL_CACERT: "{{ etcd_pki_dir }}/ca.crt"
     ETCDCTL_ENDPOINTS: "{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) %}https://{{  hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
     ETCDCTL_API: 3
-  args:
-    executable: /bin/bash
   delegate_to: "{{ (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first) }}"
 
 - name: 删除所有 etcd 数据、证书及相关配置
