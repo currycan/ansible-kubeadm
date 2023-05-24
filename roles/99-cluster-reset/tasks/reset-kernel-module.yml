@@ -3,7 +3,7 @@
   ansible.builtin.systemd:
     name: systemd-modules-load
     state: stopped
-    enabled: no
+    enabled: false
   register: stop_modules_result
   failed_when: stop_modules_result.failed
 

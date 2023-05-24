@@ -76,6 +76,7 @@ etcd:
     - {{ hostvars[host]['ansible_' + iface].ipv4.address }}
 {% endfor %} #}
 imageRepository: "{{ kube_image_repository }}"
+imageTag: "{{ etcd_version }}-0"
 networking:
   dnsDomain: "{{ cluster_domain_name }}"
   podSubnet: "{{ pod_network_cidr }}"

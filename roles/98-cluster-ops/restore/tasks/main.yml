@@ -2,9 +2,9 @@
 - name: 停止运行 kubelet
   ansible.builtin.systemd:
     name: kubelet
-    daemon_reload: yes
+    daemon_reload: true
     state: stopped
-    enabled: yes
+    enabled: true
   failed_when: false
 
 - name: 读取本地 etcd 备份文件
@@ -55,9 +55,9 @@
 - name: 启动 kubelet
   ansible.builtin.systemd:
     name: "{{ item }}"
-    daemon_reload: yes
+    daemon_reload: true
     state: restarted
-    enabled: yes
+    enabled: true
   with_items:
   - kubelet
 

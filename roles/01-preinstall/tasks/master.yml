@@ -3,16 +3,12 @@
   ansible.builtin.copy:
     src: "update-kubeadm-cert.sh"
     dest: "/usr/local/bin/"
-    owner: root
-    group: root
     mode: 0755
 
 - name: 安装 helm
   ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    owner: root
-    group: root
     mode: 0755
   with_items:
     - { src: "{{ cache_dir }}/binary/helm/", dest: "/usr/bin/"}

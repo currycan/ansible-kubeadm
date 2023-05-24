@@ -42,7 +42,7 @@
     ansible.builtin.systemd:
       name: kubelet
       state: restarted
-      enabled: yes
+      enabled: true
 
   - name: 等待 kubelet 件启动
     ansible.builtin.wait_for:

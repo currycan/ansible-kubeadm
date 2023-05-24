@@ -8,8 +8,6 @@
       ansible.builtin.template:
         src: "{{ item.src }}.j2"
         dest: "{{ item.dest }}"
-        owner: "root"
-        group: "root"
         mode: "0644"
       with_items:
         - { src: "kube-lvscare/lb-kube-lvscare.yaml", dest: "{{ manifest_dir }}/lb-kube-lvscare.yaml", lb: "kube-lvscare" }
@@ -27,8 +25,6 @@
       ansible.builtin.template:
         src: "{{ item.src }}.j2"
         dest: "{{ item.dest }}"
-        owner: "root"
-        group: "root"
         mode: "0644"
       with_items:
         - { src: "kubelet/99-kubelet-override.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/99-kubelet-override.conf" }
@@ -37,9 +33,9 @@
     - name: 启动 kubelet, bootstrap lb 服务
       ansible.builtin.systemd:
         name: kubelet
-        daemon_reload: yes
+        daemon_reload: true
         state: restarted
-        enabled: yes
+        enabled: true
       register: started_kubelet
       until: started_kubelet is succeeded
       retries: 3
@@ -58,9 +54,9 @@
     - name: 停止 kubelet
       ansible.builtin.systemd:
         name: kubelet
-        daemon_reload: yes
+        daemon_reload: true
         state: stopped
-        enabled: yes
+        enabled: true
 
     - name: 移除 kubelet 临时配置文件
       ansible.builtin.file:
@@ -76,8 +72,6 @@
       ansible.builtin.template:
         src: "{{ item.src }}.j2"
         dest: "{{ item.dest }}"
-        owner: "root"
-        group: "root"
         mode: "0644"
       with_items:
         - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/10-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/10-kubeadm.conf" }

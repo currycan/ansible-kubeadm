@@ -26,8 +26,6 @@
     ansible.builtin.template:
       src: "kubeadm-controlplane-init.yaml.j2"
       dest: "{{ kubernetes_etc_dir }}/kubeadm-config.yaml"
-      owner: "root"
-      group: "root"
       mode: 0644
 
   - name: 第一个 master 节点手动生成 {{ certs_expired }} 过期时间证书
@@ -61,8 +59,8 @@
         {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} {{ kube_master_external_domain.split(',')[0] }}
       mode: 0644
       state: present
-      create: yes
-      backup: yes
+      create: true
+      backup: true
       marker: "# Ansible kube-apiserver temporary domain {mark}"
 
   # - name: 暂停测试
@@ -72,14 +70,22 @@
   - name: 停止运行 kubelet
     ansible.builtin.systemd:
       name: kubelet
-      daemon_reload: yes
+      daemon_reload: true
       state: stopped
       enabled: true
 
   # kubeadm init --pod-network-cidr="172.30.0.0/16" --kubernetes-version=v1.18.6 --image-repository=registry.aliyuncs.com/k8sxio --ignore-preflight-errors=DirAvailable--etc-kubernetes-manifests --dry-run
   - name: Debug
     ansible.builtin.debug:
-      msg: "初始化第一个 master 节点, 可能需要一定时间。。"
+      msg: "初始化第一个 master 节点 {{ inventory_hostname }}, 可能需要一定时间, 执行命令: timeout -k 10s 5m kubeadm init \
+        {% if skip_kube_proxy | bool -%}
+        --skip-phases=addon/kube-proxy \
+        {% endif -%}
+        {% if skip_coredns | bool -%}
+        --skip-phases=addon/coredns \
+        {% endif -%}
+        --ignore-preflight-errors=ImagePull \
+        --config={{ kubernetes_etc_dir }}/kubeadm-config.yaml --upload-certs --v=5"
   - name: 初始化第一个 master 节点
     changed_when: true
     ansible.builtin.shell: >
@@ -142,14 +148,3 @@
     - csr
     - user
     - addons
-
-  # - name: 判断 kubelet bootstrappers kubeconfig 文件是否存在
-  #   ansible.builtin.stat:
-  #     path: "{{ item.path }}"
-  #   with_items: "{{ kube_config.contexts }}"
-  #   register: check_kubeconfig_files
-
-  # - name: 创建 kubelet bootstrappers kubeconfig 文件
-  #   when: not item.stat.exists
-  #   ansible.builtin.include_tasks: "kubeconfig.yml"
-  #   with_items: "{{ check_kubeconfig_files['results'] }}"

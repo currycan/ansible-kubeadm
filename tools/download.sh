@@ -225,7 +225,7 @@ function download_images (){
     cp ${BINARY_DIR}/docker/docker /usr/local/bin/
     chmod 755 /usr/local/bin/docker
     # master nodes
-    master_images="kube-apiserver:v${KUBE_VERSION} kube-scheduler:v${KUBE_VERSION} kube-controller-manager:v${KUBE_VERSION} etcd:${ETCD_VERSION}"
+    master_images="kube-apiserver:v${KUBE_VERSION} kube-scheduler:v${KUBE_VERSION} kube-controller-manager:v${KUBE_VERSION} etcd:${ETCD_VERSION}-0"
     for img in ${master_images};
     do
         docker pull ${KUBE_IMAGE_REPO}/${img}
@@ -235,7 +235,7 @@ function download_images (){
         ${KUBE_IMAGE_REPO}/kube-apiserver:v${KUBE_VERSION} \
         ${KUBE_IMAGE_REPO}/kube-scheduler:v${KUBE_VERSION} \
         ${KUBE_IMAGE_REPO}/kube-controller-manager:v${KUBE_VERSION} \
-        ${KUBE_IMAGE_REPO}/etcd:${ETCD_VERSION} \
+        ${KUBE_IMAGE_REPO}/etcd:${ETCD_VERSION}-0 \
         ghcr.io/kube-vip/kube-vip:v${KUBE_VIP_VERSION}
 
     # all nodes
@@ -316,21 +316,21 @@ function version(){
     echo kube-lvscare 版本: $KUBE_LVSCARE_VERSION
 }
 
-function set_version(){
-    echo kernel_offlie_version: ${KERNEL_OFFLIE_VERSION} > ${BASE_DIR}/version.yml
-    echo etcd_version: ${ETCD_VERSION} >> ${BASE_DIR}/version.yml
-    echo kube_version: ${KUBE_VERSION} >> ${BASE_DIR}/version.yml
-    echo containerd_version: ${CONTAINERD_VERSION} >> ${BASE_DIR}/version.yml
-    echo docker_version: ${DOCKER_VERSION} >> ${BASE_DIR}/version.yml
-    echo helm_version: ${HELM_VERSION} >> ${BASE_DIR}/version.yml
+function set_resource(){
+    echo kernel_offlie_version: ${KERNEL_OFFLIE_VERSION} > ${BASE_DIR}/resource.yml
+    echo etcd_version: ${ETCD_VERSION} >> ${BASE_DIR}/resource.yml
+    echo kube_version: ${KUBE_VERSION} >> ${BASE_DIR}/resource.yml
+    echo containerd_version: ${CONTAINERD_VERSION} >> ${BASE_DIR}/resource.yml
+    echo docker_version: ${DOCKER_VERSION} >> ${BASE_DIR}/resource.yml
+    echo helm_version: ${HELM_VERSION} >> ${BASE_DIR}/resource.yml
 
-    echo kube_image_repository: ${KUBE_IMAGE_REPO} >> ${BASE_DIR}/version.yml
-    echo pause_image: ${KUBE_IMAGE_REPO}/pause:${PAUSE_VERSION} >> ${BASE_DIR}/version.yml
-    echo coredns_image: ${KUBE_IMAGE_REPO}/coredns:${COREDNS_VERSION} >> ${BASE_DIR}/version.yml
-    echo autoscaler_image: registry.k8s.io/cpa/cluster-proportional-autoscaler:v${AUTOSCALER_VERSION} >> ${BASE_DIR}/version.yml
-    echo dns_node_cache_image: registry.k8s.io/dns/k8s-dns-node-cache:${DNS_NODE_CACHE_VERSION} >> ${BASE_DIR}/version.yml
-    echo kube_vip_image: ghcr.io/kube-vip/kube-vip:v${KUBE_VIP_VERSION} >> ${BASE_DIR}/version.yml
-    echo kube_lvscare_image: ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION} >> ${BASE_DIR}/version.yml
+    echo kube_image_repository: ${KUBE_IMAGE_REPO} >> ${BASE_DIR}/resource.yml
+    echo pause_image: ${KUBE_IMAGE_REPO}/pause:${PAUSE_VERSION} >> ${BASE_DIR}/resource.yml
+    echo coredns_image: ${KUBE_IMAGE_REPO}/coredns:${COREDNS_VERSION} >> ${BASE_DIR}/resource.yml
+    echo autoscaler_image: registry.k8s.io/cpa/cluster-proportional-autoscaler:v${AUTOSCALER_VERSION} >> ${BASE_DIR}/resource.yml
+    echo dns_node_cache_image: registry.k8s.io/dns/k8s-dns-node-cache:${DNS_NODE_CACHE_VERSION} >> ${BASE_DIR}/resource.yml
+    echo kube_vip_image: ghcr.io/kube-vip/kube-vip:v${KUBE_VIP_VERSION} >> ${BASE_DIR}/resource.yml
+    echo kube_lvscare_image: ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION} >> ${BASE_DIR}/resource.yml
 }
 
 function download () {
@@ -347,7 +347,7 @@ function download () {
     download_etcd_binary
     download_kubernetes_binary
     download_images
-    set_version
+    set_resource
 }
 
 download | tee download.log

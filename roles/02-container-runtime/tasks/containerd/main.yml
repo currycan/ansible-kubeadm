@@ -13,8 +13,6 @@
   ansible.builtin.template:
     src: "containerd/{{ item.src }}.j2"
     dest: "{{ item.dest }}"
-    owner: "root"
-    group: "root"
     mode: "0644"
   with_items:
     - { src: "containerd.service", dest: "{{ systemd_service_dir }}/containerd.service", enable: true }
@@ -24,9 +22,9 @@
 - name: 启动 containerd, 并设置开机启动
   ansible.builtin.systemd:
     name: containerd
-    daemon_reload: yes
+    daemon_reload: true
     state: restarted
-    enabled: yes
+    enabled: true
   register: started_containerd
   until: started_containerd.status.ActiveState == "active"
   retries: 3

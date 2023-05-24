@@ -27,18 +27,18 @@
         set -o pipefail;
         if [ `kubeadm token list | grep {{ bootstrap_token | default('abcdef.0123456789abcdef') }} | wc -l` -eq 1 ];then
           echo $(kubeadm token create --print-join-command --dry-run | grep join | sed "s/--token\s.*\s--discovery/--token {{ bootstrap_token | default('abcdef.0123456789abcdef') }} --discovery/g") \
-          --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+          $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
         else
           echo $(kubeadm token create --print-join-command --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml) \
-            --certificate-key $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+            $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
         fi
       environment:
         KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
       register: worker_kubeadm_join_cmd
 
-    - name: Debug
-      ansible.builtin.debug:
-        var: worker_kubeadm_join_cmd.stdout_lines
+    # - name: Debug
+    #   ansible.builtin.debug:
+    #     var: worker_kubeadm_join_cmd.stdout_lines
 
     - name: 获取 kubeadm join 命令
       ansible.builtin.set_fact:
@@ -57,7 +57,10 @@
 
     - name: Debug
       ansible.builtin.debug:
-        msg: "worker 节点加入集群, 可能需要一定时间。。"
+        msg: "{{ inventory_hostname }} worker 节点加入集群, 可能需要一定时间, 执行命令: timeout -k 10s 5m {{ worker_kubeadm_join }} \
+          --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
+          --ignore-preflight-errors=all \
+          --v=5"
     - name: worker 节点加入集群
       changed_when: true
       ansible.builtin.shell: >

@@ -41,23 +41,13 @@
         KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
       register: master_kubeadm_join_cmd
 
-    - name: Debug
-      ansible.builtin.debug:
-        var: master_kubeadm_join_cmd.stdout_lines
+    # - name: Debug
+    #   ansible.builtin.debug:
+    #     var: master_kubeadm_join_cmd.stdout_lines
 
     - name: 获取 kubeadm join 命令
       ansible.builtin.set_fact:
         master_kubeadm_join: "{{ master_kubeadm_join_cmd.stdout }}"
-
-# - name: 分发 bootstrap-kubelet.conf 文件到其他 master 节点
-#   when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
-#   copy:
-#     src: "{{ kubernetes_etc_dir }}/bootstrap-kubelet.conf"
-#     dest: "{{ kubernetes_etc_dir }}/bootstrap-kubelet.conf"
-#     owner: root
-#     group: root
-#     mode: 0600
-#   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
 
 - name: 其他 master 节点加入集群
   ansible.builtin.include_tasks: join.yml
@@ -82,8 +72,6 @@
       ansible.builtin.copy:
         src: "{{ kubernetes_etc_dir }}/admin.conf"
         dest: "{{ ansible_env.HOME }}/.kube/config"
-        owner: root
-        group: root
         mode: 0600
 
     - name: master 设置节点标签, 并设置污点（禁止调度）

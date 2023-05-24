@@ -7,11 +7,6 @@
       name: ntp
       state: absent
 
-  - name: Debug
-    ansible.builtin.debug:
-      msg: "安装 chrony, 可能需要一定时间。。"
-    run_once: true
-
   - name: 离线安装 chrony
     ansible.builtin.shell: >-
       rpm -Uvh --nodeps --force *.rpm
@@ -34,9 +29,9 @@
     - name: 启动 chrony server
       ansible.builtin.systemd:
         name: chronyd
-        daemon_reload: yes
+        daemon_reload: true
         state: restarted
-        enabled: yes
+        enabled: true
 
   - name: Chrony client 安装
     when: 'inventory_hostname != groups.chrony[0]'
@@ -51,7 +46,7 @@
     - name: 启动 chrony client
       ansible.builtin.systemd:
         name: chronyd
-        daemon_reload: yes
+        daemon_reload: true
         state: restarted
-        enabled: yes
+        enabled: true
       when: 'ansible_distribution in ["CentOS","RedHat","Amazon"]'

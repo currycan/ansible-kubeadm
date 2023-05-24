@@ -42,7 +42,7 @@
   ansible.builtin.file:
     path: "{{ item.stdout }}/.kube/"
     state: directory
-    recurse: yes
+    recurse: true
     owner: "{{ item.item }}"
     group: "{{ item.item }}"
     mode: 0700

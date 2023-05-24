@@ -6,7 +6,7 @@
 - name: 停止运行 kubelet
   ansible.builtin.systemd:
     name: kubelet
-    daemon_reload: yes
+    daemon_reload: true
     state: stopped
     enabled: true
 
@@ -14,7 +14,11 @@
 # kubeadm init phase bootstrap-token
 - name: Debug
   ansible.builtin.debug:
-    msg: "其他 master 节点加入集群, 可能需要一定时间。。"
+    msg: "{{ inventory_hostname }} master 节点加入集群, 可能需要一定时间..., 执行命令: timeout -k 10s 5m {{ master_kubeadm_join }} \
+      --control-plane \
+      --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
+      --ignore-preflight-errors=all \
+      --v=5"
 - name: 其他 master 节点加入集群
   changed_when: true
   ansible.builtin.shell: >

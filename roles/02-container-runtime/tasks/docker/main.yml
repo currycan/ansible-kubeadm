@@ -10,7 +10,7 @@
     comment: "Docker user"
     shell: /sbin/nologin
     state: present
-    system: yes
+    system: true
     groups: docker
 
 - name: 创建 docker 配置文件目录
@@ -59,8 +59,6 @@
   ansible.builtin.template:
     src: "docker/{{ item.src }}.j2"
     dest: "{{ item.dest }}"
-    owner: root
-    group: root
     mode: 0644
   with_items:
     - { src: "docker.service", dest: "{{ systemd_service_dir }}/docker.service" }
@@ -87,16 +85,16 @@
 - name: 启动 Docker socket
   ansible.builtin.systemd:
     name: docker.socket
-    daemon_reload: yes
+    daemon_reload: true
     state: started
-    enabled: yes
+    enabled: true
 
 - name: 启动 Docker engine, 并设置开机启动
   ansible.builtin.systemd:
     name: docker
-    daemon_reload: yes
+    daemon_reload: true
     state: restarted
-    enabled: yes
+    enabled: true
   register: started_docker
   until: started_docker.status.ActiveState == "active"
   retries: 3
@@ -125,7 +123,7 @@
   when: item.rc == 0
   ansible.builtin.user:
     name: "{{ item }}"
-    append: yes
+    append: true
     groups: docker
     state: absent
   with_items:

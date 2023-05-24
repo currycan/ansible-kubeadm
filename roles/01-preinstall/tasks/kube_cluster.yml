@@ -3,8 +3,6 @@
   ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    owner: root
-    group: root
     mode: 0755
   with_items:
     - { src: "{{ cache_dir }}/binary/kubernetes/", dest: "/usr/bin/"}
@@ -34,6 +32,4 @@
   ansible.builtin.copy:
     src: "kubelet-pre-start.sh"
     dest: "/usr/local/bin/"
-    owner: root
-    group: root
     mode: 0755

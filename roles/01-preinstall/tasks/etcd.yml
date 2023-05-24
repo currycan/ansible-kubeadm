@@ -4,15 +4,13 @@
   ansible.builtin.copy:
     src: "{{ cache_dir }}/binary/etcd/etcdctl"
     dest: "/usr/bin/etcdctl"
-    owner: root
-    group: root
     mode: 0755
 
 - name: 创建 etcd 数据备份目录
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    recurse: yes
+    recurse: true
   with_items:
     - "{{ etcd_data_bak_dir }}"
 
@@ -22,8 +20,6 @@
     src: "{{ item.src }}.j2"
     dest: "{{ item.dest }}"
     mode: "{{ item.mode }}"
-    owner: root
-    group: root
   with_items:
     - { src: "etcd.sh", dest: "{{ profile_dir }}/etcd.sh", mode: "u=rwx,g=rx,o=x" }
     - { src: "etcd_cron.sh", dest: "/usr/local/bin/etcd_cron.sh", mode: "u=rwx,g=rx,o=x" }

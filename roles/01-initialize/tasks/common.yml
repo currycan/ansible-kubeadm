@@ -14,16 +14,16 @@
 - name: 删除fstab swap 相关配置
   ansible.builtin.lineinfile:
     path: /etc/fstab
-    regexp: 'swap'
+    regexp: swap
     state: absent
-    backup: 'yes'
+    backup: true
 
 - name: 启动 irqbalance 服务, 并设置开机启动
   ansible.builtin.systemd:
     name: irqbalance
-    daemon_reload: yes
+    daemon_reload: true
     state: restarted
-    enabled: yes
+    enabled: true
   register: started_irqbalance
   until: started_irqbalance is succeeded
   retries: 3
@@ -79,9 +79,9 @@
 - name: 启动 systemd-modules-load 服务, 并设置开机启动
   ansible.builtin.systemd:
     name: systemd-modules-load
-    daemon_reload: yes
+    daemon_reload: true
     state: restarted
-    enabled: yes
+    enabled: true
   register: started_modules
   until: started_modules.status.ActiveState == "active"
   retries: 2
@@ -99,9 +99,9 @@
 # - name: 启动 ipvsadm, 并设置开机启动
 #   ansible.builtin.systemd:
 #     name: ipvsadm
-#     daemon_reload: yes
+#     daemon_reload: true
 #     # state: restarted
-#     enabled: yes
+#     enabled: true
 #   # register: started_ipvsadm
 #   # until: started_ipvsadm is succeeded
 #   # retries: 3
@@ -119,9 +119,9 @@
   ansible.posix.sysctl:
     name: "{{ item.name }}"
     value: "{{ item.value }}"
-    sysctl_set: yes
+    sysctl_set: true
     state: present
-    reload: yes
+    reload: true
   with_items:
     - { name: 'net.ipv4.ip_forward', value: '1' }
     - { name: 'vm.swappiness', value: '0' }

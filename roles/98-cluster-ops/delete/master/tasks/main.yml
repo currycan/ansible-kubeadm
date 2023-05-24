@@ -27,8 +27,8 @@
 - name: 刷新集群 master 节点状态
   failed_when: false
   changed_when: true
-  ansible.builtin.command: >
-    kubeadm reset phase update-cluster-status
+  ansible.builtin.shell: >-
+    kubeadm reset phase update-cluster-status;
     kubeadm upgrade node phase kubelet-config
 
 - name: 删除 master 节点组件相关文件
@@ -98,8 +98,6 @@
   ansible.builtin.copy:
     dest: "{{ item.source }}"
     content: "{{ item.content | b64decode }}"
-    owner: root
-    group: root
     mode: 0644
   no_log: true
   with_items: "{{ slurp_kubernetes_ca_cert.results }}"
@@ -107,9 +105,9 @@
 - name: 重启 kubelet 服务
   ansible.builtin.systemd:
     name: kubelet
-    daemon_reload: yes
+    daemon_reload: true
     state: restarted
-    enabled: yes
+    enabled: true
   register: started_kubelet
   until: started_kubelet.status.ActiveState == "active"
   retries: 3

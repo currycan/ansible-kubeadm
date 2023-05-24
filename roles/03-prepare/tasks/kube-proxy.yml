@@ -15,8 +15,6 @@
     ansible.builtin.template:
       src: "{{ item.src }}.j2"
       dest: "{{ item.dest }}"
-      owner: "root"
-      group: "root"
       mode: "0644"
     with_items:
     - { src: "kube-proxy/kubeproxy-cm.yml", dest: "{{ addons_dir }}/kube-proxy/kubeproxy-cm.yml" }

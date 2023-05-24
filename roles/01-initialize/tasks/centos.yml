@@ -19,7 +19,7 @@
     dest: /etc/selinux/config
     regexp: "^SELINUX="
     line: "SELINUX=disabled"
-    backrefs: yes
+    backrefs: true
 
 - name: 设置 yum obsoletes 值为 0
   ansible.builtin.lineinfile:
@@ -46,7 +46,7 @@
   block:
   - name: Debug
     ansible.builtin.debug:
-      msg: "安装基础依赖, 可能需要一定时间。。"
+      msg: "安装基础依赖, 可能需要一定时间..."
     run_once: true
 
   - name: 离线安装基础依赖
@@ -106,9 +106,9 @@
 - name: 重新启动 crond 避免因修改时区而导致的作业错乱问题
   ansible.builtin.systemd:
     name: crond
-    daemon_reload: yes
+    daemon_reload: true
     state: restarted
-    enabled: yes
+    enabled: true
 
 - name: 判断 irqbalance 文件是否存在
   ansible.builtin.stat:
@@ -146,6 +146,6 @@
 - name: 重启rsyslog服务
   ansible.builtin.systemd:
     name: rsyslog
-    daemon_reload: yes
+    daemon_reload: true
     state: restarted
-    enabled: yes
+    enabled: true
