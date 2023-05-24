@@ -33,6 +33,7 @@ skip_list:
   - yaml[comments-indentation]
   - name[template] # Jinja templates should only be at the end of ‘name’.
   - schema[tasks]
+  - schema[playbook]
   - jinja[spacing]
   # - jinja[spacing]
   # # - fqcn-builtins

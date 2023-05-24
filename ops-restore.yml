@@ -1,35 +1,36 @@
 ---
-- hosts: localhost
+- name: 校验 ansible 版本
+  hosts: localhost
   become: no
   tasks:
   - name: "校验 Ansible 版本"
-    assert:
+    ansible.builtin.assert:
       msg: "Ansible 版本最低要求 2.8.0, 当前版本为 {{ ansible_version.string }}, 请升级 Ansible 版本。"
       that:
       - ansible_version.string is version("2.8.0", ">=")
   vars:
     ansible_connection: local
 
-- hosts:
-  - kube_masters
+- name: 确认执行恢复操作
+  hosts: kube_masters
+  gather_facts: true
   vars_prompt:
-    name: "restore_confirmation"
+  - name: "restore_confirmation"
     prompt: "确认要恢复群集吗? 输入“yes”确认恢复群集。"
-    default: "no"
+    default: no
     private: no
   pre_tasks:
-    - name: 恢复确认
-      fail:
-        msg: "恢复确认失败, 取消恢复集群操作。"
-      when: restore_confirmation != "yes"
-  gather_facts: true
+  - name: 恢复确认
+    ansible.builtin.fail:
+      msg: "恢复确认失败, 取消恢复集群操作。"
+    when: restore_confirmation != "yes"
 
-- hosts:
-  - kube_masters
+- name: 执行恢复
+  hosts: kube_masters
   become: true
   gather_facts: true
   any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
   vars:
-    # etcd_restore_data: "/data_bak/etcd/etcd-2023-02-09-16:03.db"
+    # etcd_restore_dir: "/data/"
   roles:
   - 98-cluster-ops/restore
