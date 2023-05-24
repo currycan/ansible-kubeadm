@@ -2,6 +2,10 @@
 - name: 收尾
   when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
   block:
+  - name: Kubelet 开机自启
+    ansible.builtin.systemd:
+      name: kubelet
+      enabled: true
   # Error from server: Get "https://10.0.1.4:10250/containerLogs/kube-system/kube-apiserver-10.0.1.4/kube-apiserver?follow=true": remote error: tls: internal error
   # 基于安全性考虑，CSR approving controllers 不会自动 approve kubelet server 证书签名请求，需要手动 approve。
   - name: 手动 approve csr
