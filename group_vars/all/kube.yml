@@ -4,7 +4,7 @@ kubelet_max_pods: 100
 
 feature_gates:
   # kubectl debug 1.16.0 新增特性 , 默认关闭
-  EphemeralContainers: true
+  # EphemeralContainers: true
   # TTLAfterFinished: true
   RotateKubeletServerCertificate: true
   # # 1.20 中新增特性, 默认关闭, 1.21 版本中是默认启用

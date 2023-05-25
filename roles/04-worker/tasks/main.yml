@@ -26,11 +26,9 @@
       ansible.builtin.shell: >
         set -o pipefail;
         if [ `kubeadm token list | grep {{ bootstrap_token | default('abcdef.0123456789abcdef') }} | wc -l` -eq 1 ];then
-          echo $(kubeadm token create --print-join-command --dry-run | grep join | sed "s/--token\s.*\s--discovery/--token {{ bootstrap_token | default('abcdef.0123456789abcdef') }} --discovery/g") \
-          $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+          echo $(kubeadm token create --print-join-command --dry-run | grep join | sed "s/--token\s.*\s--discovery/--token {{ bootstrap_token | default('abcdef.0123456789abcdef') }} --discovery/g")
         else
-          echo $(kubeadm token create --print-join-command --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml) \
-            $(kubeadm init phase upload-certs --upload-certs --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml | sed -n '3p')
+          echo $(kubeadm token create --print-join-command --config {{ kubernetes_etc_dir }}/kubeadm-config.yaml)
         fi
       environment:
         KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"

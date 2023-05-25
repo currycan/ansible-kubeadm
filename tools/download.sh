@@ -13,25 +13,42 @@
 #     centos:7 bash
 # docker start -i download
 
-set -eu
+set -e
 
-# func() {
-#     echo "Usage:"
-#     echo "download.sh [-v k8sVersion]"
-#     echo "Description: download all in one depended offline packages"
-#     echo "k8sVersion,the version of kubernetes you want to download."
-#     exit -1
-# }
+# set output color
+NC='\033[0m'
+RED='\033[31m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+BLUE='\033[34m'
 
-# while getopts 'h:v' params; do
-#     case $param in
-#         v) k8sVersion="$OPTARG";;
-#         h) func;;
-#         ?) func;;
-#     esac
-# done
+log::err() {
+    printf "[$(date +'%Y-%m-%dT%H:%M:%S.%2N%z')]${RED}[ERROR] %b\n" "$@"${NC}
+}
 
-# k8sVersion=1.18.20
+log::info() {
+    printf "[$(date +'%Y-%m-%dT%H:%M:%S.%2N%z')]${GREEN}[INFO] %b\n" "$@"${NC}
+}
+
+log::warning() {
+    printf "[$(date +'%Y-%m-%dT%H:%M:%S.%2N%z')]${YELLOW}[WARNING] %b\n" "$@"${NC}
+}
+
+func() {
+    echo "Usage:"
+    echo "download.sh [-v k8sVersion]"
+    echo "Description: download all in one depended offline packages"
+    printf "${GREEN}k8sVersion: the version of kubernetes to be downloaded, such as 1.18.20.\n${NC}"
+    exit -1
+}
+
+while getopts 'v:h' OPT; do
+    case $OPT in
+        v) k8sVersion="$OPTARG";;
+        h) func;;
+        ?) func;;
+    esac
+done
 
 BASE_DIR=/k8s_cache
 BINARY_DIR=${BASE_DIR}/binary
@@ -40,8 +57,6 @@ KERNEL_RPM_DIR=${BASE_DIR}/kernel
 CHRONY_RPM_DIR=${BASE_DIR}/chrony
 DEPENDENCE_RPM_DIR=${BASE_DIR}/dependence
 CONTIANERD_RPM_DIR=${BASE_DIR}/containerd
-DOCKER_RPM_DIR=${BASE_DIR}/docker
-KUBERNETES_RPM_DIR=${BASE_DIR}/kubernetes
 
 KUBE_IMAGE_REPO="registry.cn-hangzhou.aliyuncs.com/google_containers"
 
@@ -51,13 +66,12 @@ function create_dir (){
         ${CHRONY_RPM_DIR} \
         ${DEPENDENCE_RPM_DIR} \
         ${CONTIANERD_RPM_DIR} \
-        ${DOCKER_RPM_DIR} \
-        ${KUBERNETES_RPM_DIR} \
         ${IMAGE_DIR}
 }
 
 function config_yum_repo () {
     # kernel
+    log::info "配置 kernel repo"
     cat > /etc/yum.repos.d/linux-kernel.repo <<EOF
 [kernel-longterm-4.19]
 name=kernel-longterm-4.19
@@ -66,11 +80,13 @@ enabled=1
 gpgcheck=0
 EOF
     # docker
+    log::info "配置 docker-ce repo"
     if [ ! -f /etc/yum.repos.d/docker-ce.repo ];then
         yum install -y yum-utils
         yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
     fi
     # kubernetes
+    log::info "配置 kubernetes repo"
     cat <<EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
@@ -86,7 +102,7 @@ EOF
 }
 
 function download_kernel_rpm (){
-    echo ">>>>>>: 开始下载内核 rpm 包"
+    log::info ">>>>>> 开始下载内核 rpm 包"
     yum install -y linux-firmware perl-interpreter
     yum --disablerepo="*" --enablerepo=kernel-longterm-4.19 install -y --downloadonly --downloaddir=${KERNEL_RPM_DIR} \
         kernel-longterm \
@@ -95,15 +111,17 @@ function download_kernel_rpm (){
         kernel-longterm-modules \
         kernel-longterm-modules-extra \
         kernel-longterm-cross-headers
+    log::info "内核 rpm 包下载完成"
 }
 
 function download_chrony_rpm (){
-    echo ">>>>>>: 开始下载 docker rpm 包"
+    log::info ">>>>>> 开始下载 chrony rpm 包"
     yum install -y --downloadonly --downloaddir=${CHRONY_RPM_DIR} chrony
+    log::info "chrony rpm 包下载完成"
 }
 
 function download_dependence_rpm (){
-    echo ">>>>>>: 开始下载环境依赖 rpm 包"
+    log::info ">>>>>> 开始下载环境依赖 rpm 包"
     yum install -y --downloadonly --downloaddir=${DEPENDENCE_RPM_DIR} \
         conntrack \
         conntrack-tools \
@@ -144,15 +162,18 @@ function download_dependence_rpm (){
         audit \
         glib2-devel \
         irqbalance
+    log::info "环境依赖 rpm 包下载完成"
 }
 
 function download_container_runtime_rpm (){
+    log::info ">>>>>> 开始下载 containerd 依赖 libseccomp rpm 包"
     # download libseccomp，centos 7中yum下载的版本是2.3的，版本不满足我们最新containerd的需求，需要下载2.4以上的
     curl -fSLo ${CONTIANERD_RPM_DIR}/libseccomp-2.5.2-1.el8.x86_64.rpm https://rpmfind.net/linux/centos/8-stream/BaseOS/x86_64/os/Packages/libseccomp-2.5.2-1.el8.x86_64.rpm
+    log::info "libseccomp rpm 包下载完成"
 }
 
 function download_containerd_binary (){
-    echo ">>>>>>: 开始下载 containerd 二进制包"
+    log::info ">>>>>> 开始下载 containerd 二进制包"
     # containerd
     if [ ! -d ${BINARY_DIR}/containerd ];then
         cd /tmp
@@ -170,21 +191,25 @@ function download_containerd_binary (){
         mkdir -p ${BINARY_DIR}/crictl
         tar zxf crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz -C ${BINARY_DIR}/crictl
     fi
+    log::info "containerd 二进制包下载完成"
 }
 
 function download_docker_binary (){
-    echo ">>>>>>: 开始下载 docker 二进制包"
-    if [ ! -d ${BINARY_DIR}/docker ];then
-        cd /tmp
-        curl -fSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz
-        mkdir -p ${BINARY_DIR}/docker
-        tar zxf docker-${DOCKER_VERSION}.tgz -C ${BINARY_DIR}
-        yes | cp -a ${BINARY_DIR}/containerd/usr/local/sbin/runc ${BINARY_DIR}/docker/
+    log::info ">>>>>> 开始下载 docker 二进制包"
+    if version_lt $KUBE_VERSION '1.24.0';then
+        if [ ! -d ${BINARY_DIR}/docker ];then
+            cd /tmp
+            curl -fSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz
+            mkdir -p ${BINARY_DIR}/docker
+            tar zxf docker-${DOCKER_VERSION}.tgz -C ${BINARY_DIR}
+            yes | cp -a ${BINARY_DIR}/containerd/usr/local/sbin/runc ${BINARY_DIR}/docker/
+        fi
     fi
+    log::info "docker 二进制包下载完成"
 }
 
 function download_etcd_binary (){
-    echo ">>>>>>: 开始下载 etcd 二进制包"
+    log::info ">>>>>> 开始下载 etcd 二进制包"
     if [ ! -d ${BINARY_DIR}/etcd ];then
         cd /tmp
         curl -fSLO https://github.com/etcd-io/etcd/releases/download/v${ETCD_VERSION}/etcd-v${ETCD_VERSION}-linux-amd64.tar.gz
@@ -193,10 +218,11 @@ function download_etcd_binary (){
         rm -rf ${BINARY_DIR}/etcd/Documentation
         rm -f ${BINARY_DIR}/etcd/*.md
     fi
+    log::info "etcd 二进制包下载完成"
 }
 
 function download_kubernetes_binary (){
-    echo ">>>>>>: 开始下载 kubernetes 二进制包"
+    log::info ">>>>>> 开始下载 kubernetes 二进制包"
     if [ ! -d ${BINARY_DIR}/kubernetes ];then
         cd /tmp
         curl -fSLO "https://dl.k8s.io/v${KUBE_VERSION}/kubernetes-server-linux-amd64.tar.gz"
@@ -206,10 +232,11 @@ function download_kubernetes_binary (){
         rm -rf ${BINARY_DIR}/kube_tmp
         rm -f ${BINARY_DIR}/kubernetes/{*.docker_tag,*.tar,kube-aggregator,kubectl-convert}
     fi
+    log::info "kubernetes 二进制包下载完成"
 }
 
 function download_helm_binary (){
-    echo ">>>>>>: 开始下载 helm 二进制包"
+    log::info ">>>>>> 开始下载 helm 二进制包"
     if [ ! -d ${BINARY_DIR}/helm ];then
         cd /tmp
         curl -fSLO "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
@@ -218,12 +245,19 @@ function download_helm_binary (){
         rm -f ${BINARY_DIR}/helm/LICENSE
         rm -f ${BINARY_DIR}/helm/README.md
     fi
+    log::info "helm 二进制包下载完成"
 }
 
 function download_images (){
-    echo ">>>>>>: 开始下载依赖基础镜像"
-    cp ${BINARY_DIR}/docker/docker /usr/local/bin/
-    chmod 755 /usr/local/bin/docker
+    log::info ">>>>>> 开始下载依赖基础镜像"
+    if [ -f ${BINARY_DIR}/docker/docker ];then
+        cp ${BINARY_DIR}/docker/docker /usr/local/bin/
+        chmod 755 /usr/local/bin/docker
+    else
+        cd /tmp
+        curl -fsSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz
+        tar xzvf docker-${DOCKER_VERSION}.tgz --strip 1 -C /usr/local/bin docker/docker
+    fi
     # master nodes
     master_images="kube-apiserver:v${KUBE_VERSION} kube-scheduler:v${KUBE_VERSION} kube-controller-manager:v${KUBE_VERSION} etcd:${ETCD_VERSION}-0"
     for img in ${master_images};
@@ -255,6 +289,7 @@ function download_images (){
     docker pull registry.k8s.io/cpa/cluster-proportional-autoscaler:v${AUTOSCALER_VERSION}
     docker save -o ${IMAGE_DIR}/worker.tar.gz \
         registry.k8s.io/cpa/cluster-proportional-autoscaler:v${AUTOSCALER_VERSION}
+    log::info "依赖基础镜像下载完成"
 }
 
 function version(){
@@ -264,6 +299,7 @@ function version(){
     KUBE_VERSION=${k8sVersion:-`curl -sSf https://storage.googleapis.com/kubernetes-release/release/stable.txt | grep -v % | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`}
     # download kubeadm to get component version
     # curl -fSLO /tmp/kubeadm https://dl.k8s.io/v${KUBE_VERSION}/bin/linux/amd64/kubeadm
+    log::info "下载 kubeadm 以获取集群组件版本"
     curl -fSLo /tmp/kubeadm https://storage.googleapis.com/kubernetes-release/release/v${KUBE_VERSION}/bin/linux/amd64/kubeadm
     chmod 755 /tmp/kubeadm
     # etcd
@@ -299,21 +335,20 @@ function version(){
     # kube-vip
     KUBE_VIP_VERSION=`curl -sSf https://api.github.com/repos/kube-vip/kube-vip/releases | grep tag_name | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
     # kube-lvscare
-    # KUBE_LVSCARE_VERSION=`curl -sSf https://github.com/labring/lvscare/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
-    KUBE_LVSCARE_VERSION=4.1.3
+    KUBE_LVSCARE_VERSION=`curl -sSf https://github.com/labring/sealos/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
 
-    echo 内核版本: $KERNEL_OFFLIE_VERSION
-    echo etcd 版本: $ETCD_VERSION
-    echo kubernetes 版本: $KUBE_VERSION
-    echo containerd 版本: $CONTAINERD_VERSION
-    echo docker 版本: $DOCKER_VERSION
-    echo helm 版本: $HELM_VERSION
-    echo pause_version 版本: $PAUSE_VERSION
-    echo coreDns 版本: $COREDNS_VERSION
-    echo autoscaler 版本: $AUTOSCALER_VERSION
-    echo dns-node-cache 版本: $DNS_NODE_CACHE_VERSION
-    echo kube-vip 版本: $KUBE_VIP_VERSION
-    echo kube-lvscare 版本: $KUBE_LVSCARE_VERSION
+    log::info "内核版本: $KERNEL_OFFLIE_VERSION"
+    log::info "etcd 版本: $ETCD_VERSION"
+    log::info "kubernetes 版本: $KUBE_VERSION"
+    log::info "containerd 版本: $CONTAINERD_VERSION"
+    log::info "docker 版本: $DOCKER_VERSION"
+    log::info "helm 版本: $HELM_VERSION"
+    log::info "pause_version 版本: $PAUSE_VERSION"
+    log::info "coreDns 版本: $COREDNS_VERSION"
+    log::info "autoscaler 版本: $AUTOSCALER_VERSION"
+    log::info "dns-node-cache 版本: $DNS_NODE_CACHE_VERSION"
+    log::info "kube-vip 版本: $KUBE_VIP_VERSION"
+    log::info "kube-lvscare 版本: $KUBE_LVSCARE_VERSION"
 }
 
 function set_resource(){
@@ -333,6 +368,10 @@ function set_resource(){
     echo kube_lvscare_image: ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION} >> ${BASE_DIR}/resource.yml
 }
 
+function version_lt() {
+    test "$(echo "$@" | tr " " "\n" | sort -rV | head -n 1)" != "$1";
+}
+
 function download () {
     create_dir
     config_yum_repo
@@ -349,5 +388,11 @@ function download () {
     download_images
     set_resource
 }
+
+if [ -z ${k8sVersion} ];then
+    log::warning "未定义 kubernetes 版本, 默认将下载最新版本!!"
+else
+    log::info "即将下载 v${k8sVersion} 版本 kubernetes 版本离线依赖!"
+fi
 
 download | tee download.log
