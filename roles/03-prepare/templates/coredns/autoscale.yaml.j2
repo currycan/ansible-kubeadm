@@ -81,7 +81,7 @@ spec:
       labels:
         k8s-app: kube-dns-autoscaler
       annotations:
-{% if (kube_version is version('1.19.0', '<')) %}
+{% if (kube_version is version('1.19.0', '>=')) %}
         seccomp.security.alpha.kubernetes.io/pod: 'docker/default'
 {% endif %}
     spec:

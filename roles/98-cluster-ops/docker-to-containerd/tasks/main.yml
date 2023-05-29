@@ -1,0 +1,144 @@
+---
+- name: 校验变量 container_runtime
+  ansible.builtin.assert:
+    that: container_runtime == "containerd"
+    msg: "当前 container_runtime 值为：{{ container_runtime }}，请设置为 containerd。"
+
+- name: 判断 Docker 是否运行
+  register: docker_status
+  ansible.builtin.systemd:
+    name: docker
+    daemon_reload: true
+
+- name: 将节点设置为维护者模式并排空节点
+  changed_when: true
+  ansible.builtin.shell: >
+    kubectl cordon {{ inventory_hostname }};
+    kubectl drain {{ inventory_hostname }} \
+      --ignore-daemonsets \
+      --force \
+      --delete-local-data \
+      --grace-period {{ drain_grace_period }} \
+      --timeout {{ drain_timeout }}
+  register: set_drain
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+  until: set_drain.rc == 0
+  retries: 2
+  delay: "{{ retry_stagger }}"
+  ignore_errors: true
+
+- name: 修改 docker 为 containerd
+  when: docker_status.status.ActiveState == "active"
+  block:
+  - name: 停止 kubelet 服务
+    ansible.builtin.systemd:
+      name: kubelet
+      state: stopped
+      enabled: true
+
+  - name: 停止运行的容器
+    changed_when: true
+    ignore_errors: true
+    ansible.builtin.shell: "docker stop $(docker ps -aq)"
+    args:
+      executable: /bin/bash
+    register: stop_all_docker_containers
+    retries: 5
+    until: stop_all_docker_containers.rc == 0
+    delay: 5
+
+  - name: 清理 docker 相关数据
+    changed_when: true
+    ignore_errors: true
+    ansible.builtin.shell: "docker system prune -a -f --volumes"
+    args:
+      executable: /bin/bash
+    register: remove_all_docker_data
+    retries: 5
+    until: remove_all_docker_data.rc == 0
+    delay: 5
+
+  - name: 停止 docker 服务
+    ansible.builtin.systemd:
+      name: docker
+      state: stopped
+  #     enabled: false
+
+  - name: 停止 containerd 服务
+    ansible.builtin.systemd:
+      name: containerd
+      state: stopped
+      enabled: true
+
+  - name: umount docker 相关文件或目录
+    ansible.posix.mount:
+      path: "{{ item }}"
+      state: unmounted
+    with_items:
+    - /var/run/docker
+    - /var/lib/docker/overlay
+    - /var/run/docker/netns/default
+    - "{{ kubelet_data_dir }}"
+    - "{{ kubelet_data_dir }}/pods"
+
+  - name: 删除 docker 所有运行数据文件和配置
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: absent
+    with_items:
+    - "{{ systemd_service_dir }}/docker.service"
+    - "{{ systemd_service_dir }}/docker.socket"
+    - "/etc/systemd/system/docker.service"
+    - "/etc/systemd/system/docker.socket"
+    - "{{ docker_etc_dir }}"
+    - "/var/run/docker"
+    - "{{ docker_data_dir }}"
+    - "/var/lib/dockershim"
+    - "/run/containerd"
+    - "{{ containerd_data_dir }}"
+
+- name: 所有 kube_cluster 节点重新配置 container-runtime
+  ansible.builtin.template:
+    src: "{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  with_items:
+  - { src: "{{ inventory_dir }}/roles/02-container-runtime/templates/containerd/config.toml", dest: "{{ containerd_etc_dir }}/config.toml" }
+  - { src: "{{ inventory_dir }}/roles/02-container-runtime/templates/containerd/crictl.yaml", dest: "/etc/crictl.yaml" }
+  - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-container-runtime.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf" }
+
+- name: 重新启动 containerd
+  ansible.builtin.systemd:
+    name: containerd
+    daemon_reload: true
+    state: restarted
+    enabled: true
+  register: started_containerd
+  until: started_containerd.status.ActiveState == "active"
+  retries: 3
+  delay: "{{ retry_stagger }}"
+
+- name: 确认 containerd 已正常启动
+  changed_when: true
+  ansible.builtin.command: "crictl info"
+
+- name: 加载离线镜像
+  ansible.builtin.include_role:
+    name: 03-image
+
+- name: 重新启动 kubelet
+  ansible.builtin.systemd:
+    name: kubelet
+    daemon_reload: true
+    state: restarted
+    enabled: true
+  register: started_kubelet
+  until: started_kubelet is succeeded
+  retries: 3
+  delay: "{{ retry_stagger }}"
+
+- name: 将节点恢复调度
+  changed_when: true
+  ansible.builtin.shell: >
+    kubectl uncordon {{ inventory_hostname }};
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"

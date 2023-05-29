@@ -26,6 +26,7 @@
     mode: "{{ item.mode }}"
   with_items:
     - { src: "limit-docker.slice", dest: "{{ systemd_service_dir }}", mode: "0644" }
+    - { src: "cleanup-docker-orphans.sh", dest: "/usr/local/bin/cleanup-docker-orphans.sh", mode: "0755" }
     # 私有仓库自签证书认证
     # - { src: "certs.d", dest: "{{ docker_etc_dir }}", mode: "0644" }
 

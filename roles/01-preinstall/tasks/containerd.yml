@@ -8,7 +8,7 @@
     - { src: "{{ cache_dir }}/binary/containerd/opt/", dest: "/opt/"}
     - { src: "{{ cache_dir }}/binary/containerd/usr/local/bin/", dest: "/usr/bin/"}
     - { src: "{{ cache_dir }}/binary/containerd/usr/local/sbin/", dest: "/usr/bin/"}
-    - { src: "{{ cache_dir }}/binary/crictl/", dest: "/usr/bin/"}
+    # - { src: "{{ cache_dir }}/binary/crictl/", dest: "/usr/bin/"}
 
 - name: 升级 libseccomp, 2.3 版本不支持当前 containerd
   ansible.builtin.shell: >-

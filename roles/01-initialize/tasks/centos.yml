@@ -1,5 +1,5 @@
 ---
-- name: 删除centos默认安装
+- name: 删除centos默认安装防火墙
   ansible.builtin.yum:
     name:
     - firewalld

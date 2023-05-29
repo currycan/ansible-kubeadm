@@ -4,7 +4,9 @@
     {% if proxy_registries is defined and proxy_registries | length > 0 -%}
     "registry-mirrors": [{% for reg in proxy_registries %}"{{ reg }}"{% if not loop.last %}, {% endif %}{% endfor %}],
     {% endif -%}
+    {% if (docker_version is version('23.0.0', '<')) -%}
     "storage-opts": ["overlay2.override_kernel_check=true"],
+    {% endif -%}
     "max-concurrent-downloads": 10,
     "log-driver": "json-file",
     "log-level": "warn",

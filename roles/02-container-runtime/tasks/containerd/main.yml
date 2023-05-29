@@ -1,4 +1,18 @@
 ---
+- name: 创建 containerd 用户组
+  ansible.builtin.group:
+    name: containerd
+    state: present
+
+- name: 创建 containerd 用户
+  ansible.builtin.user:
+    name: containerd
+    comment: "Docker user"
+    shell: /sbin/nologin
+    state: present
+    system: true
+    groups: containerd
+
 - name: 创建 containerd 配置文件目录
   ansible.builtin.file:
     path: "{{ item }}"
@@ -9,15 +23,15 @@
     - "{{ cni_etc_dir }}"
 
 - name: 配置 containerd
-  when: item.enable | bool
   ansible.builtin.template:
     src: "containerd/{{ item.src }}.j2"
     dest: "{{ item.dest }}"
     mode: "0644"
   with_items:
-    - { src: "containerd.service", dest: "{{ systemd_service_dir }}/containerd.service", enable: true }
-    - { src: "crictl.yaml", dest: "/etc/crictl.yaml", enable: true }
-    - { src: "config.toml", dest: "{{ containerd_etc_dir }}/config.toml", enable: "{%- if container_runtime == 'containerd' -%}true{% else %}false{%- endif -%}" }
+    - { src: "containerd.service", dest: "{{ systemd_service_dir }}/containerd.service" }
+    - { src: "containerd.socket", dest: "{{ systemd_service_dir }}/containerd.socket" }
+    - { src: "crictl.yaml", dest: "/etc/crictl.yaml" }
+    - { src: "config.toml", dest: "{{ containerd_etc_dir }}/config.toml" }
 
 - name: 启动 containerd, 并设置开机启动
   ansible.builtin.systemd:

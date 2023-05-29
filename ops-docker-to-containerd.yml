@@ -1,0 +1,27 @@
+---
+- name: Add nodes
+  hosts: kube_cluster
+  become: true
+  # serial: 2
+  gather_facts: true
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  vars_prompt:
+  - name: "restore_confirmation"
+    prompt: "确认从 Docker 切换为 containerd ? 输入“yes”确认切换。"
+    default: no
+    private: no
+  pre_tasks:
+  - name: 确认切换
+    ansible.builtin.fail:
+      msg: "确认切换失败，取消切换操作。"
+    when: restore_confirmation != "yes"
+
+- name: Chanage docker to containerd
+  hosts: kube_cluster
+  become: true
+  gather_facts: true
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  vars:
+    container_runtime: "containerd"
+  roles:
+  - 98-cluster-ops/docker-to-containerd

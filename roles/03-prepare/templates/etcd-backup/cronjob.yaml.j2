@@ -1,0 +1,50 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: etcd-backup
+  namespace: kube-system
+spec:
+  # 每小时 15 分执行一次备份
+  schedule: "15 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          tolerations:
+          - key: node-role.kubernetes.io/master
+            effect: NoSchedule
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: 'node-role.kubernetes.io/master'
+                    operator: "Exists"
+          containers:
+          - name: etcd-backup
+            image: "{{ kube_image_repository }}/etcd:{{ etcd_version }}-0"
+            env:
+            - name: ETCDCTL_API
+              value: "3"
+            command:
+            - sh
+            - -c
+            - |
+              etcdctl --endpoints=https://127.0.0.1:2379 --cacert={{ etcd_pki_dir }}/ca.crt --cert={{ etcd_pki_dir }}/healthcheck-client.crt --key={{ etcd_pki_dir }}/healthcheck-client.key snapshot save /backup/etcd-snapshot-lateest.db
+            volumeMounts:
+            - mountPath: /etc/kubernetes/pki/etcd
+              name: etcd-certs
+              readOnly: true
+            - mountPath: /backup
+              name: backup
+          restartPolicy: OnFailure
+          hostNetwork: true
+          volumes:
+          - name: etcd-certs
+            hostPath:
+              path: /etc/kubernetes/pki/etcd
+              type: Directory
+          - name: backup
+            hostPath:
+              path: "{{ etcd_data_bak_dir }}"
+              type: DirectoryOrCreate

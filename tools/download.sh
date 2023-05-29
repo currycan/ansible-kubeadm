@@ -184,13 +184,13 @@ function download_containerd_binary (){
         rm -rf ${BINARY_DIR}/containerd/etc
         rm -f ${BINARY_DIR}/containerd/*.txt
     fi
-    # crictl
-    if [ ! -f ${BINARY_DIR}/crictl/crictl ];then
-        cd /tmp
-        curl -fSLO https://github.com/kubernetes-sigs/cri-tools/releases/download/v${CRICTL_VERSION}/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz
-        mkdir -p ${BINARY_DIR}/crictl
-        tar zxf crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz -C ${BINARY_DIR}/crictl
-    fi
+    # # crictl
+    # if [ ! -f ${BINARY_DIR}/crictl/crictl ];then
+    #     cd /tmp
+    #     curl -fSLO https://github.com/kubernetes-sigs/cri-tools/releases/download/v${CRICTL_VERSION}/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz
+    #     mkdir -p ${BINARY_DIR}/crictl
+    #     tar zxf crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz -C ${BINARY_DIR}/crictl
+    # fi
     log::info "containerd 二进制包下载完成"
 }
 
@@ -203,6 +203,9 @@ function download_docker_binary (){
             mkdir -p ${BINARY_DIR}/docker
             tar zxf docker-${DOCKER_VERSION}.tgz -C ${BINARY_DIR}
             yes | cp -a ${BINARY_DIR}/containerd/usr/local/sbin/runc ${BINARY_DIR}/docker/
+            yes | cp -a ${BINARY_DIR}/containerd/usr/local/bin/containerd ${BINARY_DIR}/docker/
+            yes | cp -a ${BINARY_DIR}/containerd/usr/local/bin/containerd-shim ${BINARY_DIR}/docker/
+            yes | cp -a ${BINARY_DIR}/containerd/usr/local/bin/ctr ${BINARY_DIR}/docker/
         fi
     fi
     log::info "docker 二进制包下载完成"
@@ -323,9 +326,13 @@ function version(){
         DOCKER_VERSION=`curl -sSf https://download.docker.com/linux/static/stable/x86_64/ | grep -e docker- | tail -n 1 | cut -d">" -f1 | grep -oP "[a-zA-Z]*[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
     fi
     # containerd
-    CONTAINERD_VERSION=`curl -sSf https://github.com/containerd/containerd/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    if [ `echo ${KUBE_VERSION} | cut -d'.' -f2` -lt 24 ]; then
+        CONTAINERD_VERSION=`curl -sSf https://download.docker.com/linux/centos/7/x86_64/stable/Packages/ | grep -e containerd| grep -oP "[a-zA-Z]*[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | sort -rV | head -n 1`
+    else
+        CONTAINERD_VERSION=`curl -sSf https://github.com/containerd/containerd/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    fi
     # crictl
-    CRICTL_VERSION=`curl -sSf https://github.com/kubernetes-sigs/cri-tools/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    # CRICTL_VERSION=`curl -sSf https://github.com/kubernetes-sigs/cri-tools/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
     # helm
     HELM_VERSION=`curl -sSf https://github.com/helm/helm/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
     # autoscaler
@@ -353,15 +360,15 @@ function version(){
 
 function set_resource(){
     echo kernel_offlie_version: ${KERNEL_OFFLIE_VERSION} > ${BASE_DIR}/resource.yml
-    echo etcd_version: ${ETCD_VERSION} >> ${BASE_DIR}/resource.yml
     echo kube_version: ${KUBE_VERSION} >> ${BASE_DIR}/resource.yml
+    echo etcd_version: ${ETCD_VERSION} >> ${BASE_DIR}/resource.yml
     echo containerd_version: ${CONTAINERD_VERSION} >> ${BASE_DIR}/resource.yml
     echo docker_version: ${DOCKER_VERSION} >> ${BASE_DIR}/resource.yml
+    echo pause_version: ${PAUSE_VERSION} >> ${BASE_DIR}/resource.yml
+    echo coredns_version: ${COREDNS_VERSION} >> ${BASE_DIR}/resource.yml
     echo helm_version: ${HELM_VERSION} >> ${BASE_DIR}/resource.yml
 
     echo kube_image_repository: ${KUBE_IMAGE_REPO} >> ${BASE_DIR}/resource.yml
-    echo pause_image: ${KUBE_IMAGE_REPO}/pause:${PAUSE_VERSION} >> ${BASE_DIR}/resource.yml
-    echo coredns_image: ${KUBE_IMAGE_REPO}/coredns:${COREDNS_VERSION} >> ${BASE_DIR}/resource.yml
     echo autoscaler_image: registry.k8s.io/cpa/cluster-proportional-autoscaler:v${AUTOSCALER_VERSION} >> ${BASE_DIR}/resource.yml
     echo dns_node_cache_image: registry.k8s.io/dns/k8s-dns-node-cache:${DNS_NODE_CACHE_VERSION} >> ${BASE_DIR}/resource.yml
     echo kube_vip_image: ghcr.io/kube-vip/kube-vip:v${KUBE_VIP_VERSION} >> ${BASE_DIR}/resource.yml

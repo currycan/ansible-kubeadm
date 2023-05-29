@@ -5,9 +5,9 @@ ExecStart=/usr/bin/kubelet \
 {% if (kube_version is version('1.27.0', '<')) %}
   --container-runtime=remote \
 {% endif %}
-  --container-runtime-endpoint={% if (kube_version is version('1.28.0', '<')) %}unix://{{ cri_socket }}{% else %}criSocket://{{ cri_socket }}{% endif %} \
+  --container-runtime-endpoint=unix://{{ cri_socket }} \
 {% else %}
-  --pod-infra-container-image={{ pause_image }} \
+  --pod-infra-container-image={{ kube_image_repository }}/pause:{{ pause_version }} \
 {% endif %}
   --root-dir={{ kubelet_data_dir }} \
   --pod-manifest-path={{ manifest_dir }} \

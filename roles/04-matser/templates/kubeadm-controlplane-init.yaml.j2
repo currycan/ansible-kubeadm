@@ -17,7 +17,7 @@ nodeRegistration:
 {% endif %}
     root-dir: "{{ kubelet_data_dir }}"
     hostname-override: "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}"
-    pod-infra-container-image: "{{ pause_image }}"
+    pod-infra-container-image: "{{ kube_image_repository }}/pause:{{ pause_version }}"
   criSocket: "{{ cri_socket }}"
   name: "{{ inventory_hostname }}"
 {% if inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'])) and inventory_hostname not in groups['kube_nodes'] %}
@@ -50,10 +50,10 @@ clusterName: "{{ cluster_name }}"
 controlPlaneEndpoint: "{{ kube_master_external_domain.split(',')[0] }}:6443"
 certificatesDir: "{{ k8s_pki_dir }}"
 {% if (kube_version is version('1.15.0', '>=')) and (not skip_coredns | bool) %}
-dns:
+dns:kube_image_repository
   type: CoreDNS
-  imageRepository: "{{ coredns_image.split(':')[0] }}"
-  imageTag: "{{ coredns_image.split(':')[1] }}"
+  imageRepository: "{{ kube_image_repository }}"
+  imageTag: "{{ coredns_version }}"
 {% endif %}
 etcd:
   local:
