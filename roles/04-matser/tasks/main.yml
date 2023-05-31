@@ -10,8 +10,8 @@
     - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
   ansible.builtin.shell: >
     set -o pipefail;
-    joined_or_not=`kubectl get nodes | grep {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} | wc -l`;
-    if [ $joined_or_not -eq 1 ];then
+    joined_or_not=`kubectl get nodes {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} --ignore-not-found | wc -l`;
+    if [ $joined_or_not -eq 2 ];then
       echo true;
     else
       echo false;

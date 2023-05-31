@@ -1,0 +1,898 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: npd
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - nodes/status
+  verbs:
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: npd
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: npd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: npd
+subjects:
+  - kind: ServiceAccount
+    name: npd
+    namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-problem-detector
+  namespace: kube-system
+  labels:
+    app: node-problem-detector
+spec:
+  selector:
+    matchLabels:
+      app: node-problem-detector
+  template:
+    metadata:
+      labels:
+        app: node-problem-detector
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+      hostNetwork: true
+      containers:
+      - name: node-problem-detector
+        # ,/config/health-checker-containerd.json
+        command:
+        - /node-problem-detector
+        - --logtostderr
+        - --config.system-log-monitor=/config/kernel-monitor.json,{% if container_runtime == 'docker' %}/config/docker-monitor.json,{% endif %}/config/abrt-adaptor.json,/config/systemd-monitor.json
+        - --config.system-stats-monitor=/config/net-cgroup-system-stats-monitor.json,/config/system-stats-monitor.json
+        - --config.custom-plugin-monitor=/config/health-checker-kubelet.json,/config/network-problem-monitor.json,/config/kernel-monitor-counter.json,{% if container_runtime == 'docker' %}/config/docker-monitor-counter.json,/config/health-checker-docker.json{% endif %},/config/systemd-monitor-counter.json
+        image: registry.k8s.io/node-problem-detector/node-problem-detector:v0.8.13
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1024Mi
+          requests:
+            cpu: 10m
+            memory: 80Mi
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        volumeMounts:
+        - name: log
+          mountPath: /var/log
+          readOnly: true
+        - name: kmsg
+          mountPath: /dev/kmsg
+          readOnly: true
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - mountPath: /etc/machine-id
+          name: machine-id
+          readOnly: true
+        - mountPath: /run/systemd/system
+          name: systemd
+        - mountPath: /var/run/dbus/
+          name: dbus
+          mountPropagation: Bidirectional
+{% if container_runtime == 'docker' %}
+        - name: docker
+          mountPath: /usr/bin/docker
+        - name: dockersock
+          mountPath: /var/run/docker.sock
+{% endif %}
+        # Make sure node problem detector is in the same timezone
+        # with the host.
+        - name: localtime
+          mountPath: /etc/localtime
+      volumes:
+      - name: log
+        # Config `log` to your system log directory
+        hostPath:
+          path: /var/log/
+      - name: kmsg
+        hostPath:
+          path: /dev/kmsg
+{% if container_runtime == 'docker' %}
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock
+      - name: docker
+        hostPath:
+          path: /usr/bin/docker
+{% endif %}
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
+      - name: config
+        configMap:
+          name: node-problem-detector-config
+          items:
+          - key: abrt-adaptor.json
+            path: abrt-adaptor.json
+          - key: docker-monitor.json
+            path: docker-monitor.json
+          - key: kernel-monitor.json
+            path: kernel-monitor.json
+          - key: systemd-monitor.json
+            path: systemd-monitor.json
+          - key: net-cgroup-system-stats-monitor.json
+            path: net-cgroup-system-stats-monitor.json
+          - key: system-stats-monitor.json
+            path: system-stats-monitor.json
+          - key: known-modules.json
+            path: guestosconfig/known-modules.json
+          - key: health-checker-kubelet.json
+            path: health-checker-kubelet.json
+          - key: network-problem-monitor.json
+            path: network-problem-monitor.json
+          - key: network_problem.sh
+            path: plugin/network_problem.sh
+            mode: 0755
+          - key: docker-monitor-counter.json
+            path: docker-monitor-counter.json
+          - key: health-checker-containerd.json
+            path: health-checker-containerd.json
+          - key: health-checker-docker.json
+            path: health-checker-docker.json
+          - key: kernel-monitor-counter.json
+            path: kernel-monitor-counter.json
+          - key: systemd-monitor-counter.json
+            path: systemd-monitor-counter.json
+      - name: machine-id
+        hostPath:
+          path: /etc/machine-id
+          type: "File"
+      - name: systemd
+        hostPath:
+          path: /run/systemd/system/
+          type: ""
+      - name: dbus
+        hostPath:
+          path: /var/run/dbus/
+          type: ""
+      priorityClassName: system-node-critical
+      serviceAccountName: npd
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+        - operator: Exists
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-problem-detector-config
+  namespace: kube-system
+data:
+  kernel-monitor.json: |
+    {
+        "plugin": "kmsg",
+        "logPath": "/dev/kmsg",
+        "lookback": "5m",
+        "bufferSize": 10,
+        "source": "kernel-monitor",
+        "conditions": [
+            {
+                "type": "KernelDeadlock",
+                "reason": "KernelHasNoDeadlock",
+                "message": "kernel has no deadlock"
+            },
+            {
+                "type": "ReadonlyFilesystem",
+                "reason": "FilesystemIsNotReadOnly",
+                "message": "Filesystem is not read-only"
+            }
+        ],
+        "rules": [
+            {
+                "type": "temporary",
+                "reason": "OOMKilling",
+                "pattern": "Kill process \\d+ (.+) score \\d+ or sacrifice child\\nKilled process \\d+ (.+) total-vm:\\d+kB, anon-rss:\\d+kB, file-rss:\\d+kB.*"
+            },
+            {
+                "type": "temporary",
+                "reason": "TaskHung",
+                "pattern": "task \\S+:\\w+ blocked for more than \\w+ seconds\\."
+            },
+            {
+                "type": "temporary",
+                "reason": "UnregisterNetDevice",
+                "pattern": "unregister_netdevice: waiting for \\w+ to become free. Usage count = \\d+"
+            },
+            {
+                "type": "temporary",
+                "reason": "KernelOops",
+                "pattern": "BUG: unable to handle kernel NULL pointer dereference at .*"
+            },
+            {
+                "type": "temporary",
+                "reason": "KernelOops",
+                "pattern": "divide error: 0000 \\[#\\d+\\] SMP"
+            },
+            {
+                "type": "temporary",
+                "reason": "MemoryReadError",
+                "pattern": "CE memory read error .*"
+            },
+            {
+                "type": "permanent",
+                "condition": "KernelDeadlock",
+                "reason": "AUFSUmountHung",
+                "pattern": "task umount\\.aufs:\\w+ blocked for more than \\w+ seconds\\."
+            },
+            {
+                "type": "permanent",
+                "condition": "KernelDeadlock",
+                "reason": "DockerHung",
+                "pattern": "task docker:\\w+ blocked for more than \\w+ seconds\\."
+            },
+            {
+                "type": "permanent",
+                "condition": "ReadonlyFilesystem",
+                "reason": "FilesystemIsReadOnly",
+                "pattern": "Remounting filesystem read-only"
+            }
+        ]
+    }
+  docker-monitor.json: |
+    {
+        "plugin": "journald",
+        "pluginConfig": {
+            "source": "dockerd"
+        },
+        "logPath": "/var/log/journal",
+        "lookback": "5m",
+        "bufferSize": 10,
+        "source": "docker-monitor",
+        "conditions": [],
+        "rules": [
+            {
+                "type": "temporary",
+                "reason": "CorruptDockerImage",
+                "pattern": "Error trying v2 registry: failed to register layer: rename /var/lib/docker/image/(.+) /var/lib/docker/image/(.+): directory not empty.*"
+            }
+        ]
+    }
+  system-stats-monitor.json: |
+    {
+      "cpu": {
+        "metricsConfigs": {
+          "cpu/load_15m": {
+            "displayName": "cpu/load_15m"
+          },
+          "cpu/load_1m": {
+            "displayName": "cpu/load_1m"
+          },
+          "cpu/load_5m": {
+            "displayName": "cpu/load_5m"
+          },
+          "cpu/runnable_task_count": {
+            "displayName": "cpu/runnable_task_count"
+          },
+          "cpu/usage_time": {
+            "displayName": "cpu/usage_time"
+          },
+          "system/cpu_stat": {
+            "displayName": "system/cpu_stat"
+          },
+          "system/interrupts_total": {
+            "displayName": "system/interrupts_total"
+          },
+          "system/processes_total": {
+            "displayName": "system/processes_total"
+          },
+          "system/procs_blocked": {
+            "displayName": "system/procs_blocked"
+          },
+          "system/procs_running": {
+            "displayName": "system/procs_running"
+          }
+        }
+      },
+      "disk": {
+        "includeAllAttachedBlk": true,
+        "includeRootBlk": true,
+        "lsblkTimeout": "5s",
+        "metricsConfigs": {
+          "disk/avg_queue_len": {
+            "displayName": "disk/avg_queue_len"
+          },
+          "disk/bytes_used": {
+            "displayName": "disk/bytes_used"
+          },
+          "disk/io_time": {
+            "displayName": "disk/io_time"
+          },
+          "disk/merged_operation_count": {
+            "displayName": "disk/merged_operation_count"
+          },
+          "disk/operation_bytes_count": {
+            "displayName": "disk/operation_bytes_count"
+          },
+          "disk/operation_count": {
+            "displayName": "disk/operation_count"
+          },
+          "disk/operation_time": {
+            "displayName": "disk/operation_time"
+          },
+          "disk/weighted_io": {
+            "displayName": "disk/weighted_io"
+          }
+        }
+      },
+      "host": {
+        "metricsConfigs": {
+          "host/uptime": {
+            "displayName": "host/uptime"
+          }
+        }
+      },
+      "invokeInterval": "60s",
+      "memory": {
+        "metricsConfigs": {
+          "memory/anonymous_used": {
+            "displayName": "memory/anonymous_used"
+          },
+          "memory/bytes_used": {
+            "displayName": "memory/bytes_used"
+          },
+          "memory/dirty_used": {
+            "displayName": "memory/dirty_used"
+          },
+          "memory/page_cache_used": {
+            "displayName": "memory/page_cache_used"
+          },
+          "memory/unevictable_used": {
+            "displayName": "memory/unevictable_used"
+          }
+        }
+      },
+      "osFeature": {
+        "KnownModulesConfigPath": "guestosconfig/known-modules.json",
+        "metricsConfigs": {
+          "system/os_feature": {
+            "displayName": "system/os_feature"
+          }
+        }
+      }
+    }
+  net-cgroup-system-stats-monitor.json: |
+    {
+      "net": {
+        "excludeInterfaceRegexp": "^(cali|tunl|veth)",
+        "metricsConfigs": {
+          "net/rx_bytes": {
+            "displayName": "net/rx_bytes"
+          },
+          "net/rx_packets": {
+            "displayName": "net/rx_packets"
+          },
+          "net/rx_errors": {
+            "displayName": "net/rx_errors"
+          },
+          "net/rx_dropped": {
+            "displayName": "net/rx_dropped"
+          },
+          "net/rx_fifo": {
+            "displayName": "net/rx_fifo"
+          },
+          "net/rx_frame": {
+            "displayName": "net/rx_frame"
+          },
+          "net/rx_compressed": {
+            "displayName": "net/rx_compressed"
+          },
+          "net/rx_multicast": {
+            "displayName": "net/rx_multicast"
+          },
+          "net/tx_bytes": {
+            "displayName": "net/tx_bytes"
+          },
+          "net/tx_packets": {
+            "displayName": "net/tx_packets"
+          },
+          "net/tx_errors": {
+            "displayName": "net/tx_errors"
+          },
+          "net/tx_dropped": {
+            "displayName": "net/tx_dropped"
+          },
+          "net/tx_fifo": {
+            "displayName": "net/tx_fifo"
+          },
+          "net/tx_collisions": {
+            "displayName": "net/tx_collisions"
+          },
+          "net/tx_carrier": {
+            "displayName": "net/tx_carrier"
+          },
+          "net/tx_compressed": {
+            "displayName": "net/tx_compressed"
+          }
+        }
+      },
+      "invokeInterval": "120s"
+    }
+  systemd-monitor-counter.json: |
+    {
+      "plugin": "custom",
+      "pluginConfig": {
+        "invoke_interval": "5m",
+        "timeout": "1m",
+        "max_output_length": 80,
+        "concurrency": 1
+      },
+      "source": "systemd-monitor",
+      "metricsReporting": true,
+      "conditions": [
+        {
+          "type": "FrequentKubeletRestart",
+          "reason": "NoFrequentKubeletRestart",
+          "message": "kubelet is functioning properly"
+        },
+        {
+          "type": "FrequentDockerRestart",
+          "reason": "NoFrequentDockerRestart",
+          "message": "docker is functioning properly"
+        },
+        {
+          "type": "FrequentContainerdRestart",
+          "reason": "NoFrequentContainerdRestart",
+          "message": "containerd is functioning properly"
+        }
+      ],
+      "rules": [
+        {
+          "type": "permanent",
+          "condition": "FrequentKubeletRestart",
+          "reason": "FrequentKubeletRestart",
+          "path": "/home/kubernetes/bin/log-counter",
+          "args": [
+            "--journald-source=systemd",
+            "--log-path=/var/log/journal",
+            "--lookback=20m",
+            "--delay=5m",
+            "--count=5",
+            "--pattern=Started Kubernetes kubelet."
+          ],
+          "timeout": "1m"
+        },
+        {
+          "type": "permanent",
+          "condition": "FrequentDockerRestart",
+          "reason": "FrequentDockerRestart",
+          "path": "/home/kubernetes/bin/log-counter",
+          "args": [
+            "--journald-source=systemd",
+            "--log-path=/var/log/journal",
+            "--lookback=20m",
+            "--count=5",
+            "--pattern=Starting Docker Application Container Engine..."
+          ],
+          "timeout": "1m"
+        },
+        {
+          "type": "permanent",
+          "condition": "FrequentContainerdRestart",
+          "reason": "FrequentContainerdRestart",
+          "path": "/home/kubernetes/bin/log-counter",
+          "args": [
+            "--journald-source=systemd",
+            "--log-path=/var/log/journal",
+            "--lookback=20m",
+            "--count=5",
+            "--pattern=Starting containerd container runtime..."
+          ],
+          "timeout": "1m"
+        }
+      ]
+    }
+  health-checker-containerd.json: |
+    {
+      "plugin": "custom",
+      "pluginConfig": {
+        "invoke_interval": "10s",
+        "timeout": "3m",
+        "max_output_length": 80,
+        "concurrency": 1
+      },
+      "source": "health-checker",
+      "metricsReporting": true,
+      "conditions": [
+        {
+          "type": "ContainerRuntimeUnhealthy",
+          "reason": "ContainerRuntimeIsHealthy",
+          "message": "Container runtime on the node is functioning properly"
+        }
+      ],
+      "rules": [
+        {
+          "type": "permanent",
+          "condition": "ContainerRuntimeUnhealthy",
+          "reason": "ContainerdUnhealthy",
+          "path": "/home/kubernetes/bin/health-checker",
+          "args": [
+            "--component=cri",
+            "--enable-repair=true",
+            "--cooldown-time=2m",
+            "--health-check-timeout=60s"
+          ],
+          "timeout": "3m"
+        }
+      ]
+    }
+  health-checker-docker.json: |
+    {
+      "plugin": "custom",
+      "pluginConfig": {
+        "invoke_interval": "10s",
+        "timeout": "3m",
+        "max_output_length": 80,
+        "concurrency": 1
+      },
+      "source": "health-checker",
+      "metricsReporting": true,
+      "conditions": [
+        {
+          "type": "ContainerRuntimeUnhealthy",
+          "reason": "ContainerRuntimeIsHealthy",
+          "message": "Container runtime on the node is functioning properly"
+        }
+      ],
+      "rules": [
+        {
+          "type": "permanent",
+          "condition": "ContainerRuntimeUnhealthy",
+          "reason": "DockerUnhealthy",
+          "path": "/home/kubernetes/bin/health-checker",
+          "args": [
+            "--component=docker",
+            "--enable-repair=true",
+            "--cooldown-time=2m",
+            "--health-check-timeout=60s"
+          ],
+          "timeout": "3m"
+        }
+      ]
+    }
+  docker-monitor-counter.json: |
+    {
+      "plugin": "custom",
+      "pluginConfig": {
+        "invoke_interval": "5m",
+        "timeout": "1m",
+        "max_output_length": 80,
+        "concurrency": 1
+      },
+      "source": "docker-monitor",
+      "conditions": [
+        {
+          "type": "CorruptDockerOverlay2",
+          "reason": "NoCorruptDockerOverlay2",
+          "message": "docker overlay2 is functioning properly"
+        }
+      ],
+      "rules": [
+        {
+          "type": "permanent",
+          "condition": "CorruptDockerOverlay2",
+          "reason": "CorruptDockerOverlay2",
+          "path": "/home/kubernetes/bin/log-counter",
+          "args": [
+            "--journald-source=dockerd",
+            "--log-path=/var/log/journal",
+            "--lookback=5m",
+            "--count=10",
+            "--pattern=returned error: readlink /var/lib/docker/overlay2.*: invalid argument.*"
+          ],
+          "timeout": "1m"
+        }
+      ]
+    }
+  kernel-monitor-counter.json: |
+    {
+      "plugin": "custom",
+      "pluginConfig": {
+        "invoke_interval": "5m",
+        "timeout": "1m",
+        "max_output_length": 80,
+        "concurrency": 1
+      },
+      "source": "kernel-monitor",
+      "metricsReporting": true,
+      "conditions": [
+        {
+          "type": "FrequentUnregisterNetDevice",
+          "reason": "NoFrequentUnregisterNetDevice",
+          "message": "node is functioning properly"
+        }
+      ],
+      "rules": [
+        {
+          "type": "permanent",
+          "condition": "FrequentUnregisterNetDevice",
+          "reason": "UnregisterNetDevice",
+          "path": "/home/kubernetes/bin/log-counter",
+          "args": [
+            "--journald-source=kernel",
+            "--log-path=/var/log/journal",
+            "--lookback=20m",
+            "--count=3",
+            "--pattern=unregister_netdevice: waiting for \\w+ to become free. Usage count = \\d+"
+          ],
+          "timeout": "1m"
+        }
+      ]
+    }
+  known-modules.json: |
+    [
+      { "moduleName": "xt_MASQUERADE"},
+      { "moduleName": "xt_addrtype"},
+      { "moduleName": "iptable_nat"},
+      { "moduleName": "nf_nat"},
+      { "moduleName": "br_netfilter"},
+      { "moduleName": "ip6table_filter"},
+      { "moduleName": "ip6_tables"},
+      { "moduleName": "aesni_intel"},
+      { "moduleName": "glue_helper"},
+      { "moduleName": "crypto_simd"},
+      { "moduleName": "cryptd"},
+      { "moduleName": "virtio_balloon"},
+      { "moduleName": "loadpin_trigger"},
+      { "moduleName":"ip6table_filter"},
+      { "moduleName":"ip6_tables"},
+      { "moduleName":"iptable_filter"},
+      { "moduleName":"bpfilter"},
+      { "moduleName":"nls_iso8859_1"},
+      { "moduleName":"intel_rapl_msr"},
+      { "moduleName":"intel_rapl_common"},
+      { "moduleName":"sb_edac"},
+      { "moduleName":"rapl"},
+      { "moduleName":"input_leds"},
+      { "moduleName":"serio_raw"},
+      { "moduleName":"pvpanic"},
+      { "moduleName":"mac_hid"},
+      { "moduleName":"sch_fq_codel"},
+      { "moduleName":"ib_iser"},
+      { "moduleName":"rdma_cm"},
+      { "moduleName":"iw_cm"},
+      { "moduleName":"ib_cm"},
+      { "moduleName":"ib_core"},
+      { "moduleName":"iscsi_tcp"},
+      { "moduleName":"libiscsi_tcp"},
+      { "moduleName":"libiscsi"},
+      { "moduleName":"scsi_transport_iscsi"},
+      { "moduleName":"virtio_rng"},
+      { "moduleName":"ip_tables"},
+      { "moduleName":"x_tables"},
+      { "moduleName":"autofs4"},
+      { "moduleName":"btrfs"},
+      { "moduleName":"zstd_compress"},
+      { "moduleName":"raid10"},
+      { "moduleName":"raid456"},
+      { "moduleName":"async_raid6_recov"},
+      { "moduleName":"async_memcpy"},
+      { "moduleName":"async_pq"},
+      { "moduleName":"async_xor"},
+      { "moduleName":"async_tx"},
+      { "moduleName":"xor"},
+      { "moduleName":"raid6_pq"},
+      { "moduleName":"raid1"},
+      { "moduleName":"raid0"},
+      { "moduleName":"multipath"},
+      { "moduleName":"linear"},
+      { "moduleName":"crct10dif_pclmul"},
+      { "moduleName":"crc32_pclmul"},
+      { "moduleName":"ghash_clmulni_intel"},
+      { "moduleName":"aesni_intel"},
+      { "moduleName":"crypto_simd"},
+      { "moduleName":"cryptd"},
+      { "moduleName":"glue_helper"},
+      { "moduleName":"psmouse"},
+      { "moduleName":"virtio_net"},
+      { "moduleName":"net_failover"},
+      { "moduleName": "failover"},
+      { "moduleName":"i2c_piix4"}
+    ]
+  abrt-adaptor.json: |
+    {
+        "plugin": "journald",
+        "pluginConfig": {
+            "source": "abrt-notification"
+        },
+        "logPath": "/var/log/journal",
+        "lookback": "5m",
+        "bufferSize": 10,
+        "source": "abrt-adaptor",
+        "conditions": [],
+        "rules": [
+            {
+                "type": "temporary",
+                "reason": "CCPPCrash",
+                "pattern": "Process \\d+ \\(\\S+\\) crashed in .*"
+            },
+            {
+                "type": "temporary",
+                "reason": "UncaughtException",
+                "pattern": "Process \\d+ \\(\\S+\\) of user \\d+ encountered an uncaught \\S+ exception"
+            },
+            {
+                "type": "temporary",
+                "reason": "XorgCrash",
+                "pattern": "Display server \\S+ crash in \\S+"
+            },
+            {
+                "type": "temporary",
+                "reason": "VMcore",
+                "pattern": "System encountered a fatal error in \\S+"
+            },
+            {
+                "type": "temporary",
+                "reason": "Kerneloops",
+                "pattern": "System encountered a non-fatal error in \\S+"
+            }
+        ]
+    }
+  systemd-monitor.json: |
+    {
+        "plugin": "journald",
+        "pluginConfig": {
+            "source": "systemd"
+        },
+        "logPath": "/var/log/journal",
+        "lookback": "5m",
+        "bufferSize": 10,
+        "source": "systemd-monitor",
+        "metricsReporting": true,
+        "conditions": [],
+        "rules": [
+            {
+                "type": "temporary",
+                "reason": "KubeletStart",
+                "pattern": "Started Kubernetes kubelet."
+            },
+            {
+                "type": "temporary",
+                "reason": "DockerStart",
+                "pattern": "Starting Docker Application Container Engine..."
+            },
+            {
+                "type": "temporary",
+                "reason": "ContainerdStart",
+                "pattern": "Starting containerd container runtime..."
+            }
+        ]
+    }
+  health-checker-kubelet.json: |
+    {
+      "plugin": "custom",
+      "pluginConfig": {
+        "invoke_interval": "10s",
+        "timeout": "3m",
+        "max_output_length": 80,
+        "concurrency": 1
+      },
+      "source": "health-checker",
+      "metricsReporting": true,
+      "conditions": [
+        {
+          "type": "KubeletUnhealthy",
+          "reason": "KubeletIsHealthy",
+          "message": "kubelet on the node is functioning properly"
+        }
+      ],
+      "rules": [
+        {
+          "type": "permanent",
+          "condition": "KubeletUnhealthy",
+          "reason": "KubeletUnhealthy",
+          "path": "/home/kubernetes/bin/health-checker",
+          "args": [
+            "--component=kubelet",
+            "--enable-repair=true",
+            "--cooldown-time=1m",
+            "--loopback-time=0",
+            "--health-check-timeout=10s"
+          ],
+          "timeout": "3m"
+        }
+      ]
+    }
+  network-problem-monitor.json: |
+    {
+      "plugin": "custom",
+      "pluginConfig": {
+        "invoke_interval": "30s",
+        "timeout": "5s",
+        "max_output_length": 80,
+        "concurrency": 3
+      },
+      "source": "network-custom-plugin-monitor",
+      "metricsReporting": true,
+      "conditions": [],
+      "rules": [
+        {
+          "type": "temporary",
+          "reason": "ConntrackFull",
+          "path": "./config/plugin/network_problem.sh",
+          "timeout": "3s"
+        }
+      ]
+    }
+  network_problem.sh: |
+    #!/bin/bash
+
+    # This plugin checks for common network issues.
+    # Currently only checks if conntrack table is more than 90% used.
+
+    readonly OK=0
+    readonly NONOK=1
+    readonly UNKNOWN=2
+
+    # "nf_conntrack" replaces "ip_conntrack" - support both
+    readonly NF_CT_COUNT_PATH='/proc/sys/net/netfilter/nf_conntrack_count'
+    readonly NF_CT_MAX_PATH='/proc/sys/net/netfilter/nf_conntrack_max'
+    readonly IP_CT_COUNT_PATH='/proc/sys/net/ipv4/netfilter/ip_conntrack_count'
+    readonly IP_CT_MAX_PATH='/proc/sys/net/ipv4/netfilter/ip_conntrack_max'
+
+    if [[ -f $NF_CT_COUNT_PATH ]] && [[ -f $NF_CT_MAX_PATH ]]; then
+      readonly CT_COUNT_PATH=$NF_CT_COUNT_PATH
+      readonly CT_MAX_PATH=$NF_CT_MAX_PATH
+    elif [[ -f $IP_CT_COUNT_PATH ]] && [[ -f $IP_CT_MAX_PATH ]]; then
+      readonly CT_COUNT_PATH=$IP_CT_COUNT_PATH
+      readonly CT_MAX_PATH=$IP_CT_MAX_PATH
+    else
+      exit $UNKNOWN
+    fi
+
+    readonly conntrack_count=$(< $CT_COUNT_PATH) || exit $UNKNOWN
+    readonly conntrack_max=$(< $CT_MAX_PATH) || exit $UNKNOWN
+    readonly conntrack_usage_msg="${conntrack_count} out of ${conntrack_max}"
+
+    if (( conntrack_count > conntrack_max * 9 /10 )); then
+      echo "Conntrack table usage over 90%: ${conntrack_usage_msg}"
+      exit $NONOK
+    else
+      echo "Conntrack table usage: ${conntrack_usage_msg}"
+      exit $OK
+    fi

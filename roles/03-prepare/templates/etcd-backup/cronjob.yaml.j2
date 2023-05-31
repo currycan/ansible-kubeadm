@@ -1,8 +1,14 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: etcd-backup
+---
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
   name: etcd-backup
-  namespace: kube-system
+  namespace: etcd-backup
 spec:
   # 每小时 15 分执行一次备份
   schedule: "15 * * * *"
@@ -12,14 +18,19 @@ spec:
         spec:
           tolerations:
           - key: node-role.kubernetes.io/master
-            effect: NoSchedule
+            operator: Exists
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
           affinity:
             nodeAffinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms:
                 - matchExpressions:
-                  - key: 'node-role.kubernetes.io/master'
-                    operator: "Exists"
+                  - key: node-role.kubernetes.io/master
+                    operator: Exists
+                - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
           containers:
           - name: etcd-backup
             image: "{{ kube_image_repository }}/etcd:{{ etcd_version }}-0"
@@ -32,11 +43,13 @@ spec:
             - |
               etcdctl --endpoints=https://127.0.0.1:2379 --cacert={{ etcd_pki_dir }}/ca.crt --cert={{ etcd_pki_dir }}/healthcheck-client.crt --key={{ etcd_pki_dir }}/healthcheck-client.key snapshot save /backup/etcd-snapshot-lateest.db
             volumeMounts:
-            - mountPath: /etc/kubernetes/pki/etcd
-              name: etcd-certs
+            - name: etcd-certs
+              mountPath: /etc/kubernetes/pki/etcd
               readOnly: true
-            - mountPath: /backup
-              name: backup
+            - name: backup
+              mountPath: /backup
+            - name: localtime
+              mountPath: /etc/localtime
           restartPolicy: OnFailure
           hostNetwork: true
           volumes:
@@ -48,3 +61,6 @@ spec:
             hostPath:
               path: "{{ etcd_data_bak_dir }}"
               type: DirectoryOrCreate
+          - name: localtime
+            hostPath:
+              path: /usr/share/zoneinfo/Asia/Shanghai

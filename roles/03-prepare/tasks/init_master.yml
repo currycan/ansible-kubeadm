@@ -35,6 +35,8 @@
   - { src: "encryption/config.yaml", dest: "{{ kubernetes_etc_dir }}/enc/secrets-encryption.yaml" }
   - { src: "audit/policy.yaml", dest: "{{ kubernetes_etc_dir }}/audit/policy.yaml" }
   - { src: "etcd-backup/cronjob.yaml", dest: "{{ addons_dir }}/cronjob.yaml" }
+  - { src: "addons/npd.yaml", dest: "{{ addons_dir }}/npd.yaml" }
+  - { src: "addons/kuboard-v3.yaml", dest: "{{ addons_dir }}/kuboard-v3.yaml" }
 
 - name: 配置 kubelet 自动轮换服务端证书配置和集群管理用户(如:admin/ops/dev)
   ansible.builtin.copy:
@@ -45,6 +47,8 @@
   - csr
   - user
   - "{{ addons_dir }}/cronjob.yaml"
+  - "{{ addons_dir }}/npd.yaml"
+  - "{{ addons_dir }}/kuboard-v3.yaml"
 
 - name: 配置 coredns
   ansible.builtin.include_tasks: coredns.yml

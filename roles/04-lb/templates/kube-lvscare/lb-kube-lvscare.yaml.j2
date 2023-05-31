@@ -13,6 +13,8 @@ spec:
     - /healthz
     - --health-schem
     - https
+    - --logger
+    - DEBG
 {% for host in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
     - --rs
     - {{ hostvars[host]['ansible_' + iface].ipv4.address }}:6443
@@ -36,10 +38,15 @@ spec:
     - mountPath: /lib/modules
       name: lib-modules
       readOnly: true
+    - name: localtime
+      mountPath: /etc/localtime
   hostNetwork: true
   volumes:
   - hostPath:
       path: /lib/modules
       type: ""
     name: lib-modules
+  - name: localtime
+    hostPath:
+      path: /usr/share/zoneinfo/Asia/Shanghai
 status: {}
