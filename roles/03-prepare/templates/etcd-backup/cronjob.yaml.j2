@@ -4,7 +4,11 @@ kind: Namespace
 metadata:
   name: etcd-backup
 ---
+{% if (kube_version is version('1.21.0', '>=')) %}
+apiVersion: batch/v1
+{% else %}
 apiVersion: batch/v1beta1
+{% endif %}
 kind: CronJob
 metadata:
   name: etcd-backup

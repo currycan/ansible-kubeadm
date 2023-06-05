@@ -35,12 +35,14 @@ skip_list:
   - schema[tasks]
   - schema[playbook]
   - jinja[spacing]
+  - var-naming[no-role-prefix]
   # - jinja[spacing]
   # # - fqcn-builtins
   # - fqcn[action]
   # - fqcn[action-core]
   # - fqcn[canonical]
   # - name[casing]
+var_naming_pattern: "^[a-z_][a-z0-9_]*$"
 # paths to be excluded from linting
 exclude_paths:
   - .github/

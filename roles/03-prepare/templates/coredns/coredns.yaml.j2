@@ -159,7 +159,7 @@ spec:
             topologyKey: kubernetes.io/hostname
       containers:
       - name: coredns
-        image: "{{ kube_image_repository }}/coredns:{{ coredns_version }}"
+        image: "{{ kube_image_repository }}/coredns:v{{ coredns_version }}"
         imagePullPolicy: IfNotPresent
         resources:
           limits:

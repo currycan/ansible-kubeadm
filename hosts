@@ -81,3 +81,6 @@ cluster_dns_ip=172.31.0.10
 # 默认是否安装 kubeadm 自带插件 coreDNS 和 kube-proxy
 skip_coredns=true
 skip_kube_proxy=false
+
+# 是否安装 calico 网络插件
+enable_calico=true

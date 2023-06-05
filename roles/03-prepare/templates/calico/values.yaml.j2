@@ -1,0 +1,12 @@
+installation:
+  enabled: true
+  kubernetesProvider: ""
+  calicoNetwork:
+    ipPools:
+    - blockSize: 26
+      cidr: "{{ pod_network_cidr }}"
+      encapsulation: IPIP
+      natOutgoing: Enabled
+      nodeSelector: all()
+    nodeAddressAutodetectionV4:
+      interface: "eth.*|en.*"

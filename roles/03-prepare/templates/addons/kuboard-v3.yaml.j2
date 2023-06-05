@@ -160,7 +160,7 @@ spec:
           volumeMounts:
             - mountPath: /data
               name: data
-      dnsPolicy: ClusterFirst
+      dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       restartPolicy: Always
       serviceAccount: kuboard-boostrap
@@ -182,15 +182,13 @@ spec:
 
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  annotations: {}
   labels:
     k8s.kuboard.cn/name: kuboard-v3
   name: kuboard-v3
   namespace: kuboard
 spec:
-  replicas: 2
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -202,17 +200,25 @@ spec:
     spec:
       affinity:
         nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - preference:
-                matchExpressions:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
                   - key: node-role.kubernetes.io/master
                     operator: Exists
-              weight: 100
-            - preference:
-                matchExpressions:
+              - matchExpressions:
                   - key: node-role.kubernetes.io/control-plane
                     operator: Exists
-              weight: 100
+          # preferredDuringSchedulingIgnoredDuringExecution:
+          #   - preference:
+          #       matchExpressions:
+          #         - key: node-role.kubernetes.io/master
+          #           operator: Exists
+          #     weight: 100
+          #   - preference:
+          #       matchExpressions:
+          #         - key: node-role.kubernetes.io/control-plane
+          #           operator: Exists
+          #     weight: 100
       containers:
         - name: kuboard
           image: 'swr.cn-east-2.myhuaweicloud.com/kuboard/kuboard:v3'
@@ -288,7 +294,10 @@ spec:
       tolerations:
         - key: node-role.kubernetes.io/master
           operator: Exists
-
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
 ---
 apiVersion: v1
 kind: Service

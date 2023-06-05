@@ -53,7 +53,7 @@ certificatesDir: "{{ k8s_pki_dir }}"
 dns:kube_image_repository
   type: CoreDNS
   imageRepository: "{{ kube_image_repository }}"
-  imageTag: "{{ coredns_version }}"
+  imageTag: "v{{ coredns_version }}"
 {% endif %}
 etcd:
   local:

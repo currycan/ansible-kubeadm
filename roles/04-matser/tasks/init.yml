@@ -138,13 +138,12 @@
     retries: 8
     delay: 15
 
-  - name: 授权 kubelet 自动轮换服务端证书、集群管理用户和安装集群基础依赖组件(如:coreDns、kube-proxy等)
-    changed_when: true
-    ansible.builtin.shell: >
-      kubectl apply -R -f "{{ kubernetes_etc_dir }}/{{ item }}"
-    environment:
-      KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
-    with_items:
-    - csr
-    - user
-    - addons
+- name: 授权 kubelet 自动轮换服务端证书、集群管理用户
+  changed_when: true
+  ansible.builtin.shell: >
+    kubectl apply -f "{{ kubernetes_etc_dir }}/{{ item }}"
+  environment:
+    KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+  with_items:
+  - csr
+  - user
