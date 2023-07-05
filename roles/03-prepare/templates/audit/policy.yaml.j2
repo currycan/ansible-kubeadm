@@ -144,9 +144,17 @@ rules:
         resources:
           - secrets
           - configmaps
+          - "serviceaccounts/token"
       - group: authentication.k8s.io
         resources:
           - tokenreviews
+          - tokenrequests
+      - group: "certificates.k8s.io"
+        resources:
+          - "certificatesigningrequests"
+          - "certificatesigningrequests/approval"
+          - "certificatesigningrequests/status"
+
   # Get repsonses can be large; skip them.
   - level: Request
     resources:

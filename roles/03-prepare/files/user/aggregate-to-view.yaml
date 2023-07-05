@@ -1,21 +1,12 @@
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: reader-clusterrolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cs:reader
-subjects:
-- apiGroup: rbac.authorization.k8s.io
-  kind: User
-  name: "reader"
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cs:reader
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+    kubernetes.io/bootstrapping: rbac-defaults
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: system:aggregate-to-view
 rules:
 - apiGroups:
   - ""
@@ -23,14 +14,13 @@ rules:
   - configmaps
   - endpoints
   - persistentvolumeclaims
+  - persistentvolumeclaims/status
   - pods
   - replicationcontrollers
   - replicationcontrollers/scale
   - serviceaccounts
   - services
-  - nodes
-  - persistentvolumeclaims
-  - persistentvolumes
+  - services/status
   verbs:
   - get
   - list
@@ -51,13 +41,6 @@ rules:
   - get
   - list
   - watch
-# 允许 exec 进入 pods
-- apiGroups:
-  - ""
-  resources:
-  - pods/exec
-  verbs:
-  - create
 - apiGroups:
   - ""
   resources:
@@ -67,14 +50,28 @@ rules:
   - list
   - watch
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - apps
   resources:
+  - controllerrevisions
   - daemonsets
+  - daemonsets/status
   - deployments
   - deployments/scale
+  - deployments/status
   - replicasets
   - replicasets/scale
+  - replicasets/status
   - statefulsets
+  - statefulsets/scale
+  - statefulsets/status
   verbs:
   - get
   - list
@@ -83,6 +80,7 @@ rules:
   - autoscaling
   resources:
   - horizontalpodautoscalers
+  - horizontalpodautoscalers/status
   verbs:
   - get
   - list
@@ -91,7 +89,9 @@ rules:
   - batch
   resources:
   - cronjobs
+  - cronjobs/status
   - jobs
+  - jobs/status
   verbs:
   - get
   - list
@@ -100,12 +100,16 @@ rules:
   - extensions
   resources:
   - daemonsets
+  - daemonsets/status
   - deployments
   - deployments/scale
+  - deployments/status
   - ingresses
+  - ingresses/status
   - networkpolicies
   - replicasets
   - replicasets/scale
+  - replicasets/status
   - replicationcontrollers/scale
   verbs:
   - get
@@ -115,6 +119,7 @@ rules:
   - policy
   resources:
   - poddisruptionbudgets
+  - poddisruptionbudgets/status
   verbs:
   - get
   - list
@@ -122,27 +127,9 @@ rules:
 - apiGroups:
   - networking.k8s.io
   resources:
+  - ingresses
+  - ingresses/status
   - networkpolicies
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - storage.k8s.io
-  resources:
-  - storageclasses
-  - volumeattachments
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  - clusterroles
-  - roles
-  - rolebindings
   verbs:
   - get
   - list

@@ -58,10 +58,10 @@ cluster_name=kubernetes
 cluster_domain_name="cluster.local"
 
 # Kubernetes 高可用虚IP, 使用 kube-vip 和 kube-lvscare
-lb_mode="kube-vip"
-lb_apiserver_ip="10.10.10.49"
-# lb_mode="kube-lvscare"
-# lb_apiserver_ip="192.168.100.100"
+# lb_mode="kube-vip"
+# lb_apiserver_ip="10.10.10.49"
+lb_mode="kube-lvscare"
+lb_apiserver_ip="192.168.100.100"
 
 # kube apiserver 外部 IP 和 域名
 kube_master_external_ip="11.11.11.11,2.2.2.2"

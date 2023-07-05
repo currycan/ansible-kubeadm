@@ -8,42 +8,42 @@ roleRef:
   kind: ClusterRole
   name: cs:drainer
 subjects:
-  - apiGroup: rbac.authorization.k8s.io
-    kind: User
-    name: "drainer"
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: "drainer"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cs:drainer
 rules:
-  - apiGroups:
-      - extensions
-      - apps
-    resources:
-      - daemonsets
-    verbs:
-      - get
-      - list
-  - apiGroups:
-      - ""
-    resources:
-      - pods
-    verbs:
-      - get
-      - delete
-      - list
-  - apiGroups:
-      - ""
-    resources:
-      - nodes
-    verbs:
-      - get
-      - patch
-      - list
-  - apiGroups:
-      - ""
-    resources:
-      - pods/eviction
-    verbs:
-      - create
+- apiGroups:
+  - extensions
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - delete
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - patch
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - pods/eviction
+  verbs:
+  - create

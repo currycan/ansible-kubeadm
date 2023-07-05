@@ -214,7 +214,7 @@ clusterDNS:
 clusterDomain: "{{ cluster_domain_name }}"
 configMapAndSecretChangeDetectionStrategy: Watch
 containerLogMaxFiles: 10
-containerLogMaxSize: 20Mi
+containerLogMaxSize: 100Mi
 contentType: application/vnd.kubernetes.protobuf
 cpuCFSQuota: true
 cpuCFSQuotaPeriod: 100ms
@@ -257,13 +257,14 @@ enforceNodeAllocatable:
 # kubelet 资源驱逐策略
 kubeReserved:
 {% if inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
-  cpu: 200m
+  cpu: 50m
   memory: 512Mi
 {% else %}
-  cpu: 100m
+  cpu: 50m
   memory: 256Mi
 {% endif %}
   ephemeral-storage: "1Gi"
+  pid: 500
 kubeReservedCgroup: "/kube.slice"  # 指定 kube 资源预留的 cgroup
 {% endif %}
 # system Cgroups
@@ -271,12 +272,14 @@ kubeReservedCgroup: "/kube.slice"  # 指定 kube 资源预留的 cgroup
 # 系统资源驱逐策略
 systemReserved:
 {% if inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'])) %}
-  cpu: 400m
+  cpu: 50m
   memory: 512Mi
-{% else %}  cpu: 200m
+{% else %}
+  cpu: 50m
   memory: 256Mi
 {% endif %}
   ephemeral-storage: "1Gi"
+  pid: 500
 systemReservedCgroup: "/system.slice"  # 指定 system 资源预留的
 {% endif %}
 eventBurst: 10
@@ -290,6 +293,7 @@ featureGates:
 fileCheckFrequency: 20s
 hairpinMode: hairpin-veth
 healthzBindAddress: 127.0.0.1
+healthzPort: 10248
 # kubelet健康检查端口
 httpCheckFrequency: 20s
 # 镜像删除策略
@@ -310,7 +314,7 @@ nodeStatusReportFrequency: 1m0s
 {% endif %}
 nodeStatusUpdateFrequency: 10s
 oomScoreAdj: -999
-podPidsLimit: -1
+podPidsLimit: 16384
 # 监听地址
 address: 0.0.0.0
 registryBurst: 20
@@ -323,12 +327,19 @@ resolvConf: /etc/resolv.conf
 rotateCertificates: true
 # 只能设置为 false, 否则启动报错: panic: runtime error: invalid memory address or nil pointer dereference
 runOnce: false
-runtimeRequestTimeout: 15m0s
+runtimeRequestTimeout: 5m0s
 serializeImagePulls: false
 serverTLSBootstrap: true
+memorySwap: {}
+logging:
+  flushFrequency: 0
+  options:
+    json:
+      infoBufferSize: "0"
+  verbosity: 0
 {% if (kube_version is version('1.21.0', '>=')) %}
-shutdownGracePeriod: 30s
-shutdownGracePeriodCriticalPods: 10s
+shutdownGracePeriod: 0s
+shutdownGracePeriodCriticalPods: 0s
 {% endif %}
 staticPodPath: "{{ manifest_dir }}"
 streamingConnectionIdleTimeout: 4h0m0s
@@ -351,6 +362,7 @@ kernelMemcgNotification: false
 protectKernelDefaults: false
 topologyManagerPolicy: "none"
 topologyManagerScope: "container"
+v: "3"
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
@@ -365,7 +377,7 @@ clientConnection:
 clusterCIDR: "{{ pod_network_cidr }}"
 configSyncPeriod: 10m0s
 conntrack:
-  maxPerCore: 32768
+  maxPerCore: 65536
   min: 131072
   tcpCloseWaitTimeout: 1h0m0s
   tcpEstablishedTimeout: 24h0m0s
@@ -405,3 +417,4 @@ winkernel:
   networkName: ""
   sourceVip: ""
 {% endif %}
+v: "3"
