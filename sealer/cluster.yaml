@@ -110,7 +110,7 @@ apiServer:
     allow-privileged: "true"
     kubelet-certificate-authority: "/etc/kubernetes/pki/ca.crt"
     v: "2"
-    service-node-port-range: "30000-32767"
+    service-node-port-range: "30000-32768"
     service-account-signing-key-file: "/etc/kubernetes/pki/sa.key"
   extraVolumes:
     - hostPath: "/etc/localtime"

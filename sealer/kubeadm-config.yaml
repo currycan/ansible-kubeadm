@@ -93,7 +93,7 @@ apiServer:
     kubelet-certificate-authority: "/etc/kubernetes/pki/ca.crt"
     audit-log-maxage: "30"
     v: "2"
-    service-node-port-range: "30000-32767"
+    service-node-port-range: "30000-32768"
     service-account-signing-key-file: "/etc/kubernetes/pki/sa.key"
   extraVolumes:
     - hostPath: "/etc/localtime"

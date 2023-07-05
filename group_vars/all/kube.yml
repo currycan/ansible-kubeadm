@@ -7,8 +7,6 @@ feature_gates:
   # EphemeralContainers: true
   # TTLAfterFinished: true
   RotateKubeletServerCertificate: true
-  EtcdCacheNotReady: true
-  WindowsHostProcessContainers: true
   # # 1.20 中新增特性, 默认关闭, 1.21 版本中是默认启用
   # GracefulNodeShutdown: true
 
@@ -36,7 +34,6 @@ apiserver_disable_admission_plugins: []
 
 ## Extra args for k8s components passing by kubeadm
 apiserver_extra_args:
-  authorization-mode: "Node,RBAC"
   allow-privileged: "true"
   # alsologtostderr: "true"
   apiserver-count: "{{ (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length }}"
@@ -78,7 +75,7 @@ apiserver_extra_args:
   runtime-config=api/all: "true"
   service-account-issuer: "https://kubernetes.default.svc.{{ cluster_domain_name }}"
   service-account-signing-key-file: "{{ k8s_pki_dir }}/sa.key"
-  service-node-port-range: 30000-32767
+  service-node-port-range: 30000-32768
   v: "3"
 
 controller_extra_args:
