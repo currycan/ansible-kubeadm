@@ -57,6 +57,13 @@ dns:kube_image_repository
 {% endif %}
 etcd:
   local:
+    dataDir: '{{ etcd_data_dir }}'
+    extraArgs:
+{% if etcd_extra_args|length > 0 %}
+{% for key in etcd_extra_args %}
+      {{ key }}: "{{ etcd_extra_args[key] }}"
+{% endfor %}
+{% endif %}
     serverCertSANs:
     - localhost
     - 127.0.0.1
@@ -131,7 +138,6 @@ apiServer:
     - hostPath: "{{ kubernetes_etc_dir }}/audit"
       mountPath: "{{ kubernetes_etc_dir }}/audit"
       pathType: DirectoryOrCreate
-      readOnly: true
       name: audit-policy
     - hostPath: "{{ kubernetes_log_dir }}/audit"
       mountPath: "{{ kubernetes_log_dir }}/audit"
