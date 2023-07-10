@@ -1,0 +1,31 @@
+---
+- name: 确认 etcd 运行状态
+  changed_when: true
+  ansible.builtin.command: /bin/true
+  notify:
+    - 启动服务，并设置开机启动
+    - 以轮询的方式等待服务启动完成
+    - 检查服务状态
+
+- name: 启动服务，并设置开机启动
+  ansible.builtin.systemd:
+    name: etcd
+    daemon_reload: yes
+    state: restarted
+    enabled: yes
+  register: started_etcd
+  until: started_etcd.status.ActiveState == "active"
+  retries: 3
+  delay: "2"
+
+- name: 检查服务状态
+  ansible.builtin.uri:
+    method: "GET"
+    url: "https://{{ etcd_listen_addr }}:2379/health"
+    validate_certs: no
+    client_cert: "{{ etcd_cert_healthcheck_client }}"
+    client_key: "{{ etcd_cert_healthcheck_client_key }}"
+  register: result
+  until: result.status is defined and result.status == 200
+  retries: 5
+  delay: "{{ retry_stagger }}"

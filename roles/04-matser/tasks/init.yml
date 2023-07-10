@@ -43,11 +43,13 @@
         -out {{ front_ca }} \
         -days {{ certs_expired }} \
         -nodes -subj '/CN=kubernetes-front-proxy-ca';
+      {% if not etcd_external | bool %}
       openssl req -x509 -sha256 -newkey rsa:2048 \
         -keyout {{ etcd_ca_key }} \
         -out {{ etcd_ca }} \
         -days {{ certs_expired }} \
         -nodes -subj '/CN=etcd-ca';
+      {% endif %}
 
   - name: 添加 kube-apiserver 临时域名解析
     when:

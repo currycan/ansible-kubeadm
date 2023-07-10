@@ -1,0 +1,92 @@
+---
+- name: 创建证书文件目录
+  ansible.builtin.file:
+    name: "{{ item }}"
+    state: directory
+    mode: "0644"
+  with_items:
+    - "{{ etcd_pki_dir }}"
+    - "{{ k8s_pki_dir }}"
+
+- name: 创建证书
+  run_once: true
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+  block:
+    - name: 配置证书相关参数
+      when: add_etcds_task is undefined
+      ansible.builtin.set_fact:
+        openssl_certs: "{{ etcd_certs }}"
+
+    - name: 配置新增节点证书相关参数
+      when: add_etcds_task is defined
+      ansible.builtin.set_fact:
+        openssl_certs: "{{ add_etcd_certs }}"
+
+    - name: 创建集群相关证书
+      ansible.builtin.include_tasks: "_create.yml"
+
+- name: 获取 etcd 相关证书
+  when: groups['kube_masters'] | difference(groups['delete_masters']) | unique | length > 1
+  ansible.builtin.slurp:
+    src: "{{ item }}"
+  with_items:
+    - "{{ etcd_ca }}"
+    - "{{ etcd_ca_key }}"
+    - "{{ etcd_cert_server }}"
+    - "{{ etcd_cert_server_key }}"
+    - "{{ etcd_cert_peer }}"
+    - "{{ etcd_cert_peer_key }}"
+    - "{{ etcd_cert_healthcheck_client }}"
+    - "{{ etcd_cert_healthcheck_client_key }}"
+  register: slurp_etcd_certs
+  run_once: true
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+
+- name: 分发证书
+  when:
+    - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
+    - inventory_hostname != (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first)
+  block:
+    - name: 创建 etcd 证书存放目录
+      ansible.builtin.file:
+        path: "{{ etcd_pki_dir }}"
+        state: directory
+        mode: 0644
+
+    - name: 分发 etcd 相关证书到各节点
+      ansible.builtin.copy:
+        dest: "{{ item.source }}"
+        content: "{{ item.content | b64decode }}"
+        owner: root
+        group: root
+        mode: 0644
+      no_log: true
+      with_items: "{{ slurp_etcd_certs.results }}"
+
+- name: 新增节点分发证书
+  when: add_etcds_task is defined
+  block:
+    - name: 新增 etcd 节点，获取更新后的相关证书
+      ansible.builtin.slurp:
+        src: "{{ item }}"
+      with_items:
+        - "{{ etcd_cert_server }}"
+        - "{{ etcd_cert_server_key }}"
+        - "{{ etcd_cert_peer }}"
+        - "{{ etcd_cert_peer_key }}"
+      register: slurp_add_etcd_certs
+      run_once: true
+      delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+
+    - name: 分发 etcd 相关证书到各节点
+      ansible.builtin.copy:
+        dest: "{{ item.source }}"
+        content: "{{ item.content | b64decode }}"
+        owner: root
+        group: root
+        mode: 0644
+      no_log: true
+      with_items: "{{ slurp_add_etcd_certs.results }}"
+      when:
+        - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
+        - inventory_hostname != (groups['kube_masters'] | difference(groups['delete_masters']) | unique | first)

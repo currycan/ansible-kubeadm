@@ -56,6 +56,20 @@ dns:kube_image_repository
   imageTag: "v{{ coredns_version }}"
 {% endif %}
 etcd:
+{% if etcd_external | bool %}
+  external:
+    endpoints:
+{% for host in ((groups['masters'] | union(groups['add_masters'])) | difference(groups['delete_masters'])) %}
+{% if hostvars[host]['ansible_host'] is defined %}
+    - https://{{ hostvars[host]['ansible_host'] }}:2379
+{% else %}
+    - https://{{ host }}:2379
+{% endif %}
+{% endfor %}
+    caFile: "{{ etcd_ca }}"
+    certFile: "{{ etcd_cert_apiserver_server }}"
+    keyFile: "{{ etcd_cert_apiserver_server_key }}"
+{% else %}
   local:
     dataDir: '{{ etcd_data_dir }}'
     extraArgs:
@@ -82,6 +96,7 @@ etcd:
 {# {% for host in ((groups['kube_masters'] | difference(groups['delete_masters']) | unique)) %}
     - {{ hostvars[host]['ansible_' + iface].ipv4.address }}
 {% endfor %} #}
+{% endif %}
 imageRepository: "{{ kube_image_repository }}"
 imageTag: "{{ etcd_version }}-0"
 networking:

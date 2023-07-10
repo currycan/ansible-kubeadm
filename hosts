@@ -50,6 +50,8 @@ enable_proxy=true
 local_image_repo="harbor1.local.com,harbor2.local.com"
 
 # etcd 集群安装方式, 堆叠模式(与 master 节点复用)
+# 是否使用外部 etcd 集群（二进制安装）
+etcd_external=true
 # 配置etcd集群域名
 etcd_domain_name="k8s.etcd.local,etcd.local.com"
 

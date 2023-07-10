@@ -16,6 +16,7 @@
   - 02-container-runtime
   - 03-image
   - 03-prepare
+  - 04-etcd
   - 04-lb
   - 04-matser
   - 04-worker

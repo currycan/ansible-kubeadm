@@ -1,0 +1,53 @@
+---
+# 3.4.10开始是必须0700权限,https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.4.md#breaking-changes
+- name: 创建 etcd 集群
+  when:
+  - etcd_external | bool
+  - "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'] | unique))"
+  block:
+  - name: 创建 kubernetes etcd 集群相关证书
+    ansible.builtin.include_tasks: "certs.yml"
+
+  - name: 创建 etcd 数据目录
+    ansible.builtin.file:
+      name: "{{ item }}"
+      state: directory
+      mode: u=rwx,g-rwx,o-rwx
+    with_items:
+    - "{{ etcd_data_dir }}"
+    - "{{ etcd_wal_dir }}"
+    - "{{ etcd_config_dir }}"
+
+  - name: 配置 etcd
+    ansible.builtin.template:
+      src: "{{ inventory_dir }}/roles/04-etcd/templates/{{ item.src }}.j2"
+      dest: "{{ item.dest }}"
+      mode: "{{ item.mode }}"
+      owner: root
+      group: root
+    with_items:
+    - { src: "etcd-config.yml", dest: "{{ etcd_config_dir }}/config.yml", mode: 0644 }
+    - { src: "etcd.service", dest: "{{ systemd_service_dir }}/etcd.service", mode: 0644 }
+
+  - name: 启动服务, 并设置开机启动
+    ansible.builtin.systemd:
+      name: etcd
+      daemon_reload: yes
+      state: restarted
+      enabled: yes
+    register: started_etcd
+    until: started_etcd.status.ActiveState == "active"
+    retries: 3
+    delay: "2"
+
+  - name: 检查服务状态
+    ansible.builtin.uri:
+      method: "GET"
+      url: "https://127.0.0.1:2379/health"
+      validate_certs: no
+      client_cert: "{{ etcd_cert_healthcheck_client }}"
+      client_key: "{{ etcd_cert_healthcheck_client_key }}"
+    register: result
+    until: result.status is defined and result.status == 200
+    retries: 3
+    delay: "{{ retry_stagger }}"

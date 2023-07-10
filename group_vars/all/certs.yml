@@ -1,6 +1,17 @@
 ---
-# certificates expired time
+# etcd certificates
+cert_key_algo: rsa
+cert_key_size: 2048
+cert_info_country: CN
+cert_info_state: ShangHai
+cert_info_locality: ShangHai
+cert_info_org_uit: kubernetes
+cert_info_expiry: 876000h
 certs_expired: 36500
+ca_certs_expired: 36500
+etcd_openssl_cnf: "{{ k8s_pki_dir }}/etcd-openssl.cnf"
+
+etcd_cert_hosts: "{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) %}{{ hostvars[host]['ansible_' + iface].ipv4.address }}{% if not loop.last %},{% endif %}{% endfor %},{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) %}{{ hostvars[host].ansible_hostname | lower }}{% if not loop.last %},{% endif %}{% endfor %},{% for domain in etcd_domain_name.split(',') %}{{ domain | trim }}{% if not loop.last %},{% endif %}{% endfor %},127.0.0.1,localhost"
 
 # etcd certificates
 etcd_ca: "{{ etcd_pki_dir }}/ca.crt"
@@ -32,11 +43,62 @@ admin_key: "{{ k8s_pki_dir }}/admin.key"
 sa_public_key: "{{ k8s_pki_dir }}/sa.pub"
 sa_private_key: "{{ k8s_pki_dir }}/sa.key"
 
-kube_config:
-  cluster_name: "{{ cluster_name }}"
-  contexts:
-  - name: system:bootstrappers:default-node-token
-    context: system:bootstrappers:default-node-token@kubernetes
-    ca: "{{ kubernetes_ca }}"
-    token: "{{ bootstrap_token | default('abcdef.0123456789abcdef') }}"
-    path: "{{ kubernetes_etc_dir }}/bootstrap-kubelet.conf"
+# CN: Common cn，kube-apiserver 从证书中提取该字段作为请求的用户名 (User)；浏览器使用该字段验证网站是否合法
+# C: Country， 国家
+# L: Locality，地区，城市
+# O: Organization，kube-apiserver 从证书中提取该字段作为请求用户所属的组 (Group)
+# OU: Organization Unit cn，组织单位名称，公司部门
+# ST: State，州，省
+etcd_certs:
+  # root ca
+  - name: ca
+    cn: etcd-ca
+    kind: ca
+    csr: "ca"
+    dir: "{{ etcd_pki_dir }}"
+  # certificates
+  - name: server
+    cn: kube-etcd
+    parent_ca: etcd-ca
+    # 此处需要特别注意，由于etcd实现方式不同，server的证书也会用于进行客户端认证，因此要选对等模式
+    kind: peer
+    hosts: "{{ etcd_cert_hosts }}"
+    csr: "peer"
+    dir: "{{ etcd_pki_dir }}"
+  - name: peer
+    cn: kube-etcd-peer
+    parent_ca: etcd-ca
+    kind: peer
+    hosts: "{{ etcd_cert_hosts }}"
+    csr: "peer"
+    dir: "{{ etcd_pki_dir }}"
+  - name: healthcheck-client
+    cn: kube-etcd-healthcheck-client
+    parent_ca: etcd-ca
+    kind: client
+    csr: "client"
+    dir: "{{ etcd_pki_dir }}"
+  - name: apiserver-etcd-client
+    cn: kube-apiserver-etcd-client
+    parent_ca: etcd-ca
+    org: "system:masters"
+    kind: client
+    csr: "client"
+    dir: "{{ k8s_pki_dir }}"
+
+add_etcd_certs:
+  - name: server
+    cn: kube-etcd
+    parent_ca: etcd-ca
+    # 此处需要特别注意，由于etcd实现方式不同，server的证书也会用于进行客户端认证，因此要选对等模式
+    kind: peer
+    hosts: "{{ etcd_cert_hosts }}"
+    csr: "peer"
+    dir: "{{ etcd_pki_dir }}"
+  - name: peer
+    cn: kube-etcd-peer
+    parent_ca: etcd-ca
+    kind: peer
+    hosts: "{{ etcd_cert_hosts }}"
+    csr: "peer"
+    dir: "{{ etcd_pki_dir }}"

@@ -1,18 +1,14 @@
 #! /bin/env bash
 
-:  ${etcd_cert_healthcheck_client:="{{ etcd_pki_dir }}/healthcheck-client.crt"}
-:  ${etcd_cert_healthcheck_client_key:="{{ etcd_pki_dir }}/healthcheck-client.key"}
-:  ${etcd_ca:="{{ etcd_pki_dir }}/ca.crt"}
+alias etcd2="ETCDCTL_API=2 etcdctl --cert-file={{ etcd_cert_healthcheck_client }} \
+    --key-file={{ etcd_cert_healthcheck_client_key }} \
+    --ca-file={{ etcd_ca }} \
+    --endpoints '{{ etcd_servers }}'"
 
-alias etcd2="ETCDCTL_API=2 etcdctl --cert-file=$etcd_cert_healthcheck_client \
-    --key-file=$etcd_cert_healthcheck_client_key \
-    --ca-file=$etcd_ca \
-    --endpoints '{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) -%}https://{{ hostvars[host]['ansible_' + iface].ipv4.address }}:2379{%- if not loop.last -%},{%- endif -%}{%- endfor -%}'"
-
-alias etcd3="ETCDCTL_API=3 etcdctl --cert=$etcd_cert_healthcheck_client \
-    --key=$etcd_cert_healthcheck_client_key \
-    --cacert=$etcd_ca \
-    --endpoints '{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) -%}https://{{ hostvars[host]['ansible_' + iface].ipv4.address }}:2379{%- if not loop.last -%},{%- endif -%}{%- endfor -%}'"
+alias etcd3="ETCDCTL_API=3 etcdctl --cert={{ etcd_cert_healthcheck_client }} \
+    --key={{ etcd_cert_healthcheck_client_key }} \
+    --cacert={{ etcd_ca }} \
+    --endpoints '{{ etcd_servers }}'"
 
 function etcd-status(){
     etcd3 endpoint status --write-out=table

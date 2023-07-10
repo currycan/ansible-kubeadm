@@ -1,0 +1,39 @@
+---
+- name: 判断证书是否存在
+  ansible.builtin.stat:
+    path: "{{ item.dir }}/{{ item.name }}.crt"
+  with_items:
+    - "{{ openssl_certs }}"
+  register: check_cert_files
+
+- name: 渲染证书签名请求文件
+  ansible.builtin.template:
+    src: "{{ inventory_dir }}/roles/04-etcd/templates/{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  with_items:
+    - { src: "etcd-openssl.cnf", dest: "{{ etcd_openssl_cnf }}" }
+
+- name: 创建证书文件
+  ansible.builtin.include_tasks: "_certs.yml"
+  loop_control:
+    loop_var: out_item
+  with_items: "{{ check_cert_files['results'] }}"
+
+- name: 获取待删除的证书临时文件
+  ansible.builtin.find:
+    paths: "{{ item }}"
+    patterns: "*.csr,*.cnf,*.srl"
+    # use_regex: true
+  with_items:
+    - "{{ etcd_pki_dir }}"
+  register: find_files_to_delete
+
+- name: 删除证书签名请求文件
+  ansible.builtin.include_tasks: "_delete_files.yml"
+  no_log: true
+  loop_control:
+    loop_var: out_item
+  with_items: "{{ find_files_to_delete['results'] }}"
