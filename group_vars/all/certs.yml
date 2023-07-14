@@ -17,7 +17,7 @@ etcd_cert_hosts: "{% for host in (groups['kube_masters'] | difference(groups['de
 etcd_ca: "{{ etcd_pki_dir }}/ca.crt"
 etcd_ca_key: "{{ etcd_pki_dir }}/ca.key"
 etcd_cert_server: "{{ etcd_pki_dir }}/server.crt"
-etcd_cert_server_key: "{{ etcd_pki_dir }}/}server.key"
+etcd_cert_server_key: "{{ etcd_pki_dir }}/server.key"
 etcd_cert_client: "{{ etcd_pki_dir }}/client.crt"
 etcd_cert_client_key: "{{ etcd_pki_dir }}/client.key"
 etcd_cert_peer: "{{ etcd_pki_dir }}/peer.crt"

@@ -5,7 +5,11 @@ installation:
     ipPools:
     - blockSize: 26
       cidr: "{{ pod_network_cidr }}"
-      encapsulation: IPIP
+      ## One of: IPIP, VXLAN, IPIPCrossSubnet, VXLANCrossSubnet, None
+      ## Overlay Network方案,源数据包封装在宿主机网络包里进行转发和通信(默认)
+      # encapsulation: IPIP
+      ## 同时支持BGP和IPIP,即根据子网选择转发方式(折中方案，集群当中是有两个网段，又想使用路由的高性能)
+      encapsulation: VXLANCrossSubnet
       natOutgoing: Enabled
       nodeSelector: all()
     nodeAddressAutodetectionV4:

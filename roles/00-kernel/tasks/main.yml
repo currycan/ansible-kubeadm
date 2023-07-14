@@ -48,7 +48,7 @@
 
 - name: 卸载 3.10 版本 kernel
   ansible.builtin.yum:
-    name: 'kernel*3.10*"'
+    name: 'kernel*3.10*'
     state: absent
     disablerepo: "*"
 

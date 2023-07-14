@@ -62,6 +62,7 @@
   with_items:
     - "{{ manifest_dir }}/etcd.yaml"
     - "{{ etcd_data_dir }}"
+    - "{{ etcd_wal_dir }}"
     # - "{{ etcd_config_dir }}"
     - "{{ etcd_data_bak_dir }}"
     - "{{ etcd_pki_dir }}"

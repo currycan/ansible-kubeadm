@@ -279,12 +279,12 @@ function download_images (){
     docker pull ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION}
     docker pull ${KUBE_IMAGE_REPO}/kube-proxy:v${KUBE_VERSION}
     docker pull ${KUBE_IMAGE_REPO}/pause:${PAUSE_VERSION}
-    docker pull ${KUBE_IMAGE_REPO}/coredns:${COREDNS_VERSION}
+    docker pull ${KUBE_IMAGE_REPO}/coredns:v${COREDNS_VERSION}
     docker pull registry.k8s.io/dns/k8s-dns-node-cache:${DNS_NODE_CACHE_VERSION}
     docker save -o ${IMAGE_DIR}/all.tar.gz \
         ${KUBE_IMAGE_REPO}/kube-proxy:v${KUBE_VERSION} \
         ${KUBE_IMAGE_REPO}/pause:${PAUSE_VERSION} \
-        ${KUBE_IMAGE_REPO}/coredns:${COREDNS_VERSION} \
+        ${KUBE_IMAGE_REPO}/coredns:v${COREDNS_VERSION} \
         ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION} \
         registry.k8s.io/dns/k8s-dns-node-cache:${DNS_NODE_CACHE_VERSION}
 
