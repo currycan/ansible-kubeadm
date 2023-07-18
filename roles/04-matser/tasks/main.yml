@@ -72,6 +72,7 @@
         src: "{{ kubernetes_etc_dir }}/admin.conf"
         dest: "{{ ansible_env.HOME }}/.kube/config"
         mode: 0600
+        remote_src: true
 
     - name: master 设置节点标签, 并设置污点（禁止调度）
       changed_when: true
@@ -88,6 +89,26 @@
       # retries: 3
       # delay: "{{ retry_stagger }}"
       # register: set_taint_master
+
+    # - name: kube-lvscare 高可用模式，修改 kube-apiserver 域名解析
+    #   when: lb_mode == "kube-lvscare"
+    #   ansible.builtin.blockinfile:
+    #     path: "/etc/hosts"
+    #     block: |-
+    #       {% for domain in kube_master_external_domain.split(',') %}
+    #       {% if groups['kube_masters'] | difference(groups['delete_masters']) | unique | length == 1 %}
+    #       {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} {{ domain | trim }}
+    #       {% elif inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) %}
+    #       {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} {{ domain | trim }}
+    #       {% else %}
+    #       {{ lb_apiserver_ip }} {{ domain | trim }}
+    #       {% endif %}
+    #       {% endfor %}
+    #     mode: 0644
+    #     state: present
+    #     create: true
+    #     backup: true
+    #     marker: "# Ansible kube-apiserver domain {mark}"
 
     - name: 普通用户配置集群访问权限
       ansible.builtin.include_tasks: normal-user-admission.yml

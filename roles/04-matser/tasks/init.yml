@@ -12,7 +12,11 @@
       [ `crictl ps --name=${cs}.* --state running | wc -l` -eq 2 ] && cs_running_num=`expr $cs_running_num + 1`;
     {%- endif -%}
     done;
+    {% if etcd_external | bool -%}
+    if [ $cs_running_num -eq 3 ];then
+    {% else -%}
     if [ $cs_running_num -eq 4 ];then
+    {%- endif -%}
       echo true;
     else
       echo false;
@@ -80,25 +84,11 @@
   - name: Debug
     ansible.builtin.debug:
       msg: "初始化第一个 master 节点 {{ inventory_hostname }}, 可能需要一定时间, 执行命令: timeout -k 10s 5m kubeadm init \
-        {% if skip_kube_proxy | bool -%}
-        --skip-phases=addon/kube-proxy \
-        {% endif -%}
-        {% if skip_coredns | bool -%}
-        --skip-phases=addon/coredns \
-        {% endif -%}
-        --ignore-preflight-errors=ImagePull \
         --config={{ kubernetes_etc_dir }}/kubeadm-config.yaml --upload-certs --v=5"
   - name: 初始化第一个 master 节点
     changed_when: true
     ansible.builtin.shell: >
       timeout -k 10s 5m kubeadm init \
-        {% if skip_kube_proxy | bool -%}
-        --skip-phases=addon/kube-proxy \
-        {% endif -%}
-        {% if skip_coredns | bool -%}
-        --skip-phases=addon/coredns \
-        {% endif -%}
-        --ignore-preflight-errors=ImagePull \
         --config={{ kubernetes_etc_dir }}/kubeadm-config.yaml --upload-certs --v=5
     register: init_first_master_rslt
     # until: init_first_master_rslt.rc == 0

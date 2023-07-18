@@ -35,7 +35,8 @@ data:
       minSyncPeriod: 0s
       syncPeriod: 30s
     ipvs:
-      excludeCIDRs: []
+      excludeCIDRs:
+      - {{ lb_apiserver_ip }}/32
       minSyncPeriod: 0s
       scheduler: "rr"
 {% if (kube_version is version('1.15.0', '>=')) %}
@@ -55,6 +56,7 @@ data:
       networkName: ""
       sourceVip: ""
 {% endif %}
+    v: "3"
   kubeconfig.conf: |-
     apiVersion: v1
     kind: Config

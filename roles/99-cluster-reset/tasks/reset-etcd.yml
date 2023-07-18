@@ -1,13 +1,25 @@
 ---
+- name: 停止运行 etcd
+  when: etcd_external | bool
+  ansible.builtin.systemd:
+    name: etcd
+    state: stopped
+    enabled: no
+
 - name: 删除所有 etcd 文件及目录
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   with_items:
+    - "{{ etcd_data_dir }}"
+    - "{{ etcd_wal_dir }}"
+    - "{{ etcd_config_dir }}"
     - "{{ etcd_data_bak_dir }}"
     - "{{ etcd_pki_dir }}"
-    - "{{ profile_dir }}/etcd.sh"
     - "/usr/local/bin/etcd_cron.sh"
+    - "{{ systemd_service_dir }}/etcd.service"
+    - "/etc/systemd/system/etcd.service"
+    - "{{ profile_dir }}/etcd.sh"
 
 - name: 删除 etcd 数据备份 crontab 任务
   ansible.builtin.cron:

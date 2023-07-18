@@ -1,14 +1,14 @@
-
 ---
 apiVersion: sealer.cloud/v2
 kind: Cluster
 metadata:
-  name: test-cluster
+  name: my-cluster
 spec:
-  image: registry.cn-hangzhou.aliyuncs.com/sealer-io/kubernetes:v1.18.20
+  # image: registry.cn-hangzhou.aliyuncs.com/sealer-io/kubernetes:v1.18.20
+  image: registry.cn-qingdao.aliyuncs.com/sealer-io/kubernetes:v1.19.8
   provider: BAREMETAL
   env:
-    key: value
+    - key1=value1
   ssh:
     # ssh的登录密码，如果使用的密钥登录则无需设置
     # passwd: hatech1618
@@ -34,6 +34,8 @@ spec:
   hosts:
   - ips:
     - 172.21.139.219
+    - 172.21.139.220
+    - 172.21.139.221
     roles:
     - master
     - ingress
@@ -41,7 +43,7 @@ spec:
     ssh:
       port: "22"
   - ips:
-    - 172.21.139.219
+    - 172.21.139.222
     roles:
     - node
     - worker
@@ -52,14 +54,19 @@ spec:
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: InitConfiguration
 localAPIEndpoint:
-  # advertiseAddress: "172.21.139.219"
   bindPort: 6443
 nodeRegistration:
   kubeletExtraArgs:
     root-dir: "/var/lib/kubelet"
-    hostname-override: "172.21.139.219"
+    v: "3"
   criSocket: "/var/run/dockershim.sock"
-  taints: []
+  ignorePreflightErrors:
+    - IsPrivilegedUser
+  taints:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+skipPhases:
+  - addon/coredns
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: JoinConfiguration
@@ -80,37 +87,29 @@ apiServer:
     enable-admission-plugins: "NamespaceExists,NamespaceLifecycle,LimitRanger,ServiceAccount,Priority,DefaultTolerationSeconds,DefaultStorageClass,PersistentVolumeClaimResize,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,NodeRestriction,PersistentVolumeLabel"
     feature-gates: "RotateKubeletServerCertificate=true"
     audit-log-maxbackup: "10"
-    requestheader-client-ca-file: "/etc/kubernetes/pki/front-proxy-ca.crt"
     watch-cache-sizes: "node#100,pod#1000"
-    encryption-provider-config: "/etc/kubernetes/enc/secrets-encryption.yaml"
     requestheader-extra-headers-prefix: "X-Remote-Extra-"
-    kubelet-client-key: "/etc/kubernetes/pki/apiserver-kubelet-client.key"
-    proxy-client-cert-file: "/etc/kubernetes/pki/front-proxy-client.crt"
     max-mutating-requests-inflight: "500"
-    kubelet-client-certificate: "/etc/kubernetes/pki/apiserver-kubelet-client.crt"
     api-audiences: "api,istio-ca"
     requestheader-allowed-names: ""
     audit-log-truncate-enabled: "true"
     audit-log-maxsize: "100"
-    proxy-client-key-file: "/etc/kubernetes/pki/front-proxy-client.key"
     apiserver-count: "1"
-    audit-log-path: "/var/log/kubernetes/audit/apiserver_audit.log"
     audit-log-format: json
     audit-log-maxage: '30'
     profiling: "false"
     tls-cipher-suites: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256"
     requestheader-username-headers: "X-Remote-User"
     enable-bootstrap-token-auth: "true"
-    audit-policy-file: "/etc/kubernetes/audit/policy.yaml"
+    # audit-policy-file: "/etc/kubernetes/audit/policy.yaml"
     max-requests-inflight: "1500"
     service-account-issuer: "https://kubernetes.default.svc.cluster.local"
     enable-aggregator-routing: "true"
     runtime-config=api/all: "true"
     requestheader-group-headers: "X-Remote-Group"
     allow-privileged: "true"
-    kubelet-certificate-authority: "/etc/kubernetes/pki/ca.crt"
-    v: "2"
-    service-node-port-range: "30000-32768"
+    v: "3"
+    service-node-port-range: "30000-32767"
     service-account-signing-key-file: "/etc/kubernetes/pki/sa.key"
   extraVolumes:
     - hostPath: "/etc/localtime"
@@ -118,19 +117,11 @@ apiServer:
       pathType: File
       readOnly: true
       name: localtime
-    - hostPath: "/etc/kubernetes/audit"
-      mountPath: "/etc/kubernetes/audit"
-      pathType: DirectoryOrCreate
+    - hostPath: "/etc/kubernetes/audit-policy.yml"
+      mountPath: "/etc/kubernetes/audit-policy.yml"
+      pathType: File
       readOnly: true
       name: audit-policy
-    - hostPath: "/var/log/kubernetes/audit"
-      mountPath: "/var/log/kubernetes/audit"
-      pathType: DirectoryOrCreate
-      name: audit-logs
-    # - name: secrets-encryption
-    #   hostPath: /etc/kubernetes/enc/secrets-encryption.yaml
-    #   mountPath: /etc/kubernetes/enc/secrets-encryption.yaml
-    #   readOnly: True
 controllerManager:
   extraArgs:
     bind-address: 127.0.0.1
@@ -142,20 +133,19 @@ controllerManager:
     concurrent-gc-syncs: "30"
     concurrent-service-syncs: "2"
     attach-detach-reconcile-sync-period: "1m0s"
-    requestheader-client-ca-file: "/etc/kubernetes/pki/front-proxy-ca.crt"
     kube-api-qps: "100"
     concurrent-deployment-syncs: "10"
     horizontal-pod-autoscaler-cpu-initialization-period: "5m0s"
     service-cluster-ip-range: "172.31.0.0/16"
     kube-api-burst: "100"
     concurrent-replicaset-syncs: "10"
-    controllers: "*,bootstrapsigner,tokencleaner"
     cluster-name: "kubernetes"
     allocate-node-cidrs: "true"
     horizontal-pod-autoscaler-downscale-stabilization: "15m"
     cluster-cidr: "172.30.0.0/16"
     horizontal-pod-autoscaler-sync-period: "30s"
     horizontal-pod-autoscaler-tolerance: "0.1"
+    v: "3"
   extraVolumes:
     - hostPath: /etc/localtime
       mountPath: /etc/localtime
@@ -167,10 +157,10 @@ scheduler:
     bind-address: 127.0.0.1
     feature-gates: "RotateKubeletServerCertificate=true"
     profiling: "false"
-    requestheader-client-ca-file: "/etc/kubernetes/pki/front-proxy-ca.crt"
     kube-api-qps: "100"
     requestheader-allowed-names: ""
     kube-api-burst: "100"
+    v: "3"
   extraVolumes:
     - hostPath: /etc/localtime
       mountPath: /etc/localtime

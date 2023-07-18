@@ -18,9 +18,16 @@ nodeRegistration:
     root-dir: "{{ kubelet_data_dir }}"
     hostname-override: "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}"
     pod-infra-container-image: "{{ kube_image_repository }}/pause:{{ pause_version }}"
+    v: "3"
   criSocket: "{{ cri_socket }}"
   name: "{{ inventory_hostname }}"
-{% if inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters'])) and inventory_hostname not in groups['kube_nodes'] %}
+  ignorePreflightErrors:
+    - ImagePull
+    - IsPrivilegedUser
+{% if (kube_version is version('1.22.0', '>=')) %}
+  imagePullPolicy: "IfNotPresent"
+{% endif %}
+{% if groups['kube_cluster']|length != 1 %}
   taints:
   - effect: NoSchedule
     key: node-role.kubernetes.io/master
@@ -36,6 +43,14 @@ bootstrapTokens:
   usages:
   - signing
   - authentication
+# certificateKey: "e6a2eb8581237ab72a4f494f30285ec12a9694d750b9785706a83bfcbbbd2204"
+skipPhases:
+{% if skip_kube_proxy | bool -%}
+  - addon/kube-proxy
+{% endif -%}
+{% if skip_coredns | bool -%}
+  - addon/coredns
+{% endif -%}
 ---
 {% if (kube_version is version('1.22.0', '>=')) %}
 apiVersion: kubeadm.k8s.io/v1beta3
@@ -48,6 +63,7 @@ kind: ClusterConfiguration
 kubernetesVersion: "v{{ kube_version }}"
 clusterName: "{{ cluster_name }}"
 controlPlaneEndpoint: "{{ kube_master_external_domain.split(',')[0] }}:6443"
+timeoutForControlPlane: 2m30s
 certificatesDir: "{{ k8s_pki_dir }}"
 {% if (kube_version is version('1.15.0', '>=')) and (not skip_coredns | bool) %}
 dns:kube_image_repository
@@ -323,8 +339,8 @@ imageGCLowThresholdPercent: 80
 imageMinimumGCAge: 2m0s
 iptablesDropBit: 15
 iptablesMasqueradeBit: 14
-kubeAPIBurst: 100
-kubeAPIQPS: 100
+kubeAPIBurst: 2000
+kubeAPIQPS: 1000
 makeIPTablesUtilChains: true
 maxOpenFiles: 1000000
 maxPods: {{ kubelet_max_pods }}
@@ -418,7 +434,8 @@ iptables:
   minSyncPeriod: 0s
   syncPeriod: 30s
 ipvs:
-  excludeCIDRs: []
+  excludeCIDRs:
+  - {{ lb_apiserver_ip }}/32
   minSyncPeriod: 0s
   scheduler: "{{ kube_proxy.scheduler }}"
 {% if (kube_version is version('1.15.0', '>=')) %}

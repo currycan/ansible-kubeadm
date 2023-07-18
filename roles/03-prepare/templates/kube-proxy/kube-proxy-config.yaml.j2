@@ -32,7 +32,8 @@ iptables:
   minSyncPeriod: 0s
   syncPeriod: 30s
 ipvs:
-  excludeCIDRs: []
+  excludeCIDRs:
+  - {{ lb_apiserver_ip }}/32
   minSyncPeriod: 0s
   scheduler: "{{ kube_proxy.scheduler }}"
 {% if (kube_version is version('1.15.0', '>=')) %}
@@ -52,3 +53,4 @@ winkernel:
   networkName: ""
   sourceVip: ""
 {% endif %}
+v: "3"
