@@ -9,6 +9,8 @@ tar zxvf sealer-v0.8.5-linux-amd64.tar.gz && mv sealer /usr/bin
 
 ## 集群部署
 
+手动安装 docker
+
 ```bash
 sealer apply -f cluster.yaml --debug
 ```

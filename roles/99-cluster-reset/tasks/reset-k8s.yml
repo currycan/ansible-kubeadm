@@ -153,7 +153,8 @@
     regexp: "{{ item }}"
   with_items:
     - "{{ lb_apiserver_ip }}"
-    - "kube-apiserver"
+    - "apiserver"
+    - "domain"
     - "^\n"
 
 - name: umount docker 相关文件或目录

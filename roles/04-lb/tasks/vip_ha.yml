@@ -3,6 +3,23 @@
   when:
     - lb_mode == "kube-vip"
   block:
+    - name: 添加 kube-apiserver 域名到 hosts 文件中
+      ansible.builtin.blockinfile:
+        path: "/etc/hosts"
+        block: |-
+          {% for domain in kube_master_external_domain.split(',') %}
+          {% if groups['kube_masters'] | difference(groups['delete_masters']) | unique | length > 1 %}
+          {{ lb_apiserver_ip }} {{ domain | trim }}
+          {% else %}
+          {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }} {{ domain | trim }}
+          {% endif %}
+          {% endfor %}
+        mode: 0644
+        state: present
+        create: true
+        backup: true
+        marker: "# Ansible kube-apiserver domain {mark}"
+
     - name: 生成 {{ lb_mode }} static pod 配置文件
       when: item.lb == lb_mode
       ansible.builtin.template:
