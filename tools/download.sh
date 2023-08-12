@@ -211,6 +211,21 @@ function download_docker_binary (){
     log::info "docker 二进制包下载完成"
 }
 
+function download_cri-dockerd_binary (){
+    log::info ">>>>>> 开始下载 cri-dockerd 二进制包"
+    if version_ge $KUBE_VERSION '1.24.0';then
+        if [ ! -d ${BINARY_DIR}/cri-dockerd ];then
+            cd /tmp
+            curl -fSLO https://github.com/Mirantis/cri-dockerd/releases/download/v${CRI_DOCKERD_VERSION}/cri-dockerd-${CRI_DOCKERD_VERSION}.amd64.tgz
+            tar zxf cri-dockerd-${CRI_DOCKERD_VERSION}.amd64.tgz -C ${BINARY_DIR}
+            curl -fSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz
+            mkdir -p ${BINARY_DIR}/docker
+            tar zxf docker-${DOCKER_VERSION}.tgz -C ${BINARY_DIR}
+        fi
+    fi
+    log::info "cri-dockerd 二进制包下载完成"
+}
+
 function download_etcd_binary (){
     log::info ">>>>>> 开始下载 etcd 二进制包"
     if [ ! -d ${BINARY_DIR}/etcd ];then
@@ -333,6 +348,8 @@ function version(){
     fi
     # crictl
     # CRICTL_VERSION=`curl -sSf https://github.com/kubernetes-sigs/cri-tools/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    # cri-dockerd
+    CRI_DOCKERD_VERSION=`curl -sSf https://github.com/Mirantis/cri-dockerd/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
     # helm
     HELM_VERSION=`curl -sSf https://github.com/helm/helm/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
     # autoscaler
@@ -375,9 +392,10 @@ function set_resource(){
     echo kube_lvscare_image: ghcr.io/labring/lvscare:v${KUBE_LVSCARE_VERSION} >> ${BASE_DIR}/resource.yml
 }
 
-function version_lt() {
-    test "$(echo "$@" | tr " " "\n" | sort -rV | head -n 1)" != "$1";
-}
+function version_gt() { test "$(echo "$@" | tr " " "\n" | sort -V | head -n 1)" != "$1"; }
+function version_le() { test "$(echo "$@" | tr " " "\n" | sort -V | head -n 1)" == "$1"; }
+function version_lt() { test "$(echo "$@" | tr " " "\n" | sort -rV | head -n 1)" != "$1"; }
+function version_ge() { test "$(echo "$@" | tr " " "\n" | sort -rV | head -n 1)" == "$1"; }
 
 function download () {
     create_dir

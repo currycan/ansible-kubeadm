@@ -6,7 +6,13 @@
 - name: 安装 docker
   ansible.builtin.include_tasks: docker.yml
   when:
-    - container_runtime == 'docker'
+    - container_runtime == 'docker' or container_runtime == 'cri-dockerd'
+    - inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
+
+- name: 安装 cri-dockerd
+  ansible.builtin.include_tasks: cri-dockerd.yml
+  when:
+    - container_runtime == 'cri-dockerd'
     - inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
 
 - name: 安装 etcd

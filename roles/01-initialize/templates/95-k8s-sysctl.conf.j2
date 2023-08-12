@@ -26,12 +26,12 @@ net.ipv4.tcp_synack_retries = 2 #表示回应第二个握手包(SYN+ACK包)给�
 net.ipv4.neigh.default.gc_stale_time = 120 #ARP缓存条目超时
 # 以下三个参数是 arp 缓存的 gc 阀值,相比默认值提高了,避免在某些场景下arp缓存溢出导致网络超时,参考:https://k8s.imroc.io/troubleshooting/cases/arp-cache-overflow-causes-healthcheck-failed
 # 配置arp cache 大小
-net.ipv4.neigh.default.gc_thresh1 = 128
-net.ipv6.neigh.default.gc_thresh1 = 128
+net.ipv4.neigh.default.gc_thresh1 = 1024
+net.ipv6.neigh.default.gc_thresh1 = 1024
 # 存在于ARP高速缓存中的最少层数,如果少于这个数,垃圾收集器将不会运行。缺省值是128。
 # 保存在 ARP 高速缓存中的最多的记录软限制。垃圾收集器在开始收集前,允许记录数超过这个数字 5 秒。缺省值是 512。
-net.ipv4.neigh.default.gc_thresh2 = 1024
-net.ipv6.neigh.default.gc_thresh2 = 1024
+net.ipv4.neigh.default.gc_thresh2 = 4096
+net.ipv6.neigh.default.gc_thresh2 = 4096
 # 保存在 ARP 高速缓存中的最多记录的硬限制,一旦高速缓存中的数目高于此,垃圾收集器将马上运行。缺省值是1024。
 net.ipv4.neigh.default.gc_thresh3 = 8192
 net.ipv6.neigh.default.gc_thresh3 = 8192
@@ -66,10 +66,10 @@ net.netfilter.nf_conntrack_tcp_be_liberal = 1 # 容器环境下,开启这个参�
 net.netfilter.nf_conntrack_tcp_loose = 1
 # 允许的最大跟踪连接条目,是在内核内存中netfilter可以同时处理的"任务"(连接跟踪条目)
 net.nf_conntrack_max = 10485760
-net.netfilter.nf_conntrack_max = 10485760 #连接跟踪表的大小,建议根据内存计算该值CONNTRACK_MAX = RAMSIZE (in bytes) / 16384 / (x / 32),并满足nf_conntrack_max=4*nf_conntrack_buckets,默认262144
+net.netfilter.nf_conntrack_max = {{ (ansible_memtotal_mb*1024*32*4/16384)|int }} #连接跟踪表的大小,建议根据内存计算该值CONNTRACK_MAX = RAMSIZE (in bytes) / 16384 / (x / 32),并满足nf_conntrack_max=4*nf_conntrack_buckets,默认262144
 # 每个网络接口接收数据包的速率比内核处理这些包的速率快时,允许送到队列的数据包的最大数目。维持通过NAT维持TCP长连接的优化,注意kube-proxy会修改此参数
 net.netfilter.nf_conntrack_tcp_timeout_established = 3600
-net.netfilter.nf_conntrack_buckets = 655360
+net.netfilter.nf_conntrack_buckets = {{ (ansible_memtotal_mb*1024*32/16384)|int }}
 net.netfilter.nf_conntrack_tcp_timeout_fin_wait = 30
 net.netfilter.nf_conntrack_tcp_timeout_time_wait = 300
 net.netfilter.nf_conntrack_tcp_timeout_close_wait = 1

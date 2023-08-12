@@ -3,28 +3,28 @@
   changed_when: true
   when: inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)
   ansible.builtin.shell: >
-    {% if container_runtime == 'docker' -%}
-      docker load -i {{ cache_dir }}/images/all.tar.gz
-    {% elif container_runtime == 'containerd' -%}
+    {% if container_runtime == 'containerd' -%}
       ctr -n=k8s.io images import {{ cache_dir }}/images/all.tar.gz
+    {% else -%}
+      docker load -i {{ cache_dir }}/images/all.tar.gz
     {%- endif -%}
 
 - name: 加载 master 节点各组件镜像
   changed_when: true
   when: "inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']))"
   ansible.builtin.shell: >
-    {% if container_runtime == 'docker' -%}
-      docker load -i {{ cache_dir }}/images/master.tar.gz
-    {% elif container_runtime == 'containerd' -%}
+    {% if container_runtime == 'containerd' -%}
       ctr -n=k8s.io images import {{ cache_dir }}/images/master.tar.gz
+    {% else -%}
+      docker load -i {{ cache_dir }}/images/master.tar.gz
     {%- endif -%}
 
 - name: Worker 节点加载依赖镜像
   changed_when: true
   when: "inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']))"
   ansible.builtin.shell: >
-    {% if container_runtime == 'docker' -%}
-      docker load -i {{ cache_dir }}/images/worker.tar.gz
-    {% elif container_runtime == 'containerd' -%}
+    {% if container_runtime == 'containerd' -%}
       ctr -n=k8s.io images import {{ cache_dir }}/images/worker.tar.gz
+    {% else -%}
+      docker load -i {{ cache_dir }}/images/worker.tar.gz
     {%- endif -%}

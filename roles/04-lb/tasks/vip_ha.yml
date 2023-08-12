@@ -8,11 +8,7 @@
         path: "/etc/hosts"
         block: |-
           {% for domain in kube_master_external_domain.split(',') %}
-          {% if groups['kube_masters'] | difference(groups['delete_masters']) | unique | length > 1 %}
           {{ lb_apiserver_ip }} {{ domain | trim }}
-          {% else %}
-          {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }} {{ domain | trim }}
-          {% endif %}
           {% endfor %}
         mode: 0644
         state: present

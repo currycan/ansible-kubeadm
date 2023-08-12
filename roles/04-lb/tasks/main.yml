@@ -1,4 +1,18 @@
 ---
+- name: 单节点集群添加 kube-apiserver 域名到 hosts 文件中
+  when: (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length == 1
+  ansible.builtin.blockinfile:
+    path: "/etc/hosts"
+    block: |-
+      {% for domain in kube_master_external_domain.split(',') %}
+      {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }} {{ domain | trim }}
+      {% endfor %}
+    mode: 0644
+    state: present
+    create: true
+    backup: true
+    marker: "# Ansible kube-apiserver domain {mark}"
+
 - name: 确认 LB 服务是否正常运行
   when:
     - (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1
@@ -12,10 +26,10 @@
         lb_srvs={{ lb_mode }};
         for lb in ${lb_srvs};
         do
-        {% if container_runtime == 'docker' -%}
-          [ `docker ps --filter name=k8s_lb-${lb}.* --filter status=running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
-        {% elif container_runtime == 'containerd' -%}
+        {% if container_runtime == 'containerd' -%}
           [ `crictl ps --name=lb-${lb}.* --state running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
+        {% else -%}
+          [ `docker ps --filter name=k8s_lb-${lb}.* --filter status=running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
         {%- endif -%}
         done;
         if [ $lb_running_num -eq 1 ];then

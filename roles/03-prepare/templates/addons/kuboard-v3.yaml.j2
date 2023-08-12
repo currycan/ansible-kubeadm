@@ -69,11 +69,20 @@ metadata:
 data:
   # 关于如下参数的解释,请参考文档 https://kuboard.cn/install/v3/install-built-in.html
   # [common]
-  KUBOARD_SERVER_NODE_PORT: '80'
-  KUBOARD_AGENT_SERVER_UDP_PORT: '10081'
-  KUBOARD_AGENT_SERVER_TCP_PORT: '10081'
+{% if groups['kube_masters'] | difference(groups['delete_masters']) | unique | length > 1 %}
+  KUBOARD_ENDPOINT: 'http://{{ lb_apiserver_ip }}:30080'
+{% else %}
+  KUBOARD_ENDPOINT: 'http://{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}:30080'
+{% endif %}
+  # KUBOARD_SERVER_NODE_PORT: '80'
+  # KUBOARD_AGENT_SERVER_UDP_PORT: '10081'
+  # KUBOARD_AGENT_SERVER_TCP_PORT: '10081'
+  KUBOARD_SERVER_NODE_PORT: '30080'
+  KUBOARD_AGENT_SERVER_UDP_PORT: '30081'
+  KUBOARD_AGENT_SERVER_TCP_PORT: '30081'
   KUBOARD_SERVER_LOGRUS_LEVEL: 'info'  # error / debug / trace
   # KUBOARD_AGENT_KEY 是 Agent 与 Kuboard 通信时的密钥,请修改为一个任意的包含字母、数字的32位字符串,此密钥变更后,需要删除 Kuboard Agent 重新导入。
+  # KUBOARD_AGENT_KEY: "{{ lookup('password', '/dev/null length=32 chars=digits,ascii_letters,digits') | lower }}"
   KUBOARD_AGENT_KEY: 'cb1gjzv7ut0nsx1a3be3d7z5c7xdss95'
   KUBOARD_AGENT_IMAG: 'swr.cn-east-2.myhuaweicloud.com/kuboard/kuboard-agent'
   KUBOARD_QUESTDB_IMAGE: 'swr.cn-east-2.myhuaweicloud.com/kuboard-dependency/questdb:6.0.4'
@@ -318,8 +327,8 @@ spec:
           volumeMounts:
             - mountPath: /data
               name: data
-      dnsPolicy: ClusterFirstWithHostNet
-      hostNetwork: true
+      # dnsPolicy: ClusterFirstWithHostNet
+      # hostNetwork: true
       serviceAccount: kuboard-boostrap
       serviceAccountName: kuboard-boostrap
       tolerations:

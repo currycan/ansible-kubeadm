@@ -1,0 +1,8 @@
+---
+- name: 二进制安装 cri-dockerd
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0755
+  with_items:
+    - { src: "{{ cache_dir }}/binary/cri-dockerd/", dest: "/usr/bin/"}

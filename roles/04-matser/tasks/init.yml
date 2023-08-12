@@ -6,10 +6,10 @@
     cs_running_num=0;
     for cs in {kube-apiserver,kube-controller-manager,kube-scheduler,etcd};
     do
-    {% if container_runtime == 'docker' -%}
-      [ `docker ps --filter name=k8s_${cs}.* --filter status=running | wc -l` -eq 2 ] && cs_running_num=`expr $cs_running_num + 1`;
-    {% elif container_runtime == 'containerd' -%}
+    {% if container_runtime == 'containerd' -%}
       [ `crictl ps --name=${cs}.* --state running | wc -l` -eq 2 ] && cs_running_num=`expr $cs_running_num + 1`;
+    {% else -%}
+      [ `docker ps --filter name=k8s_${cs}.* --filter status=running | wc -l` -eq 2 ] && cs_running_num=`expr $cs_running_num + 1`;
     {%- endif -%}
     done;
     {% if etcd_external | bool -%}

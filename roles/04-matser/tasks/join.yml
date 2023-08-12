@@ -16,14 +16,17 @@
   ansible.builtin.debug:
     msg: "{{ inventory_hostname }} master 节点加入集群, 可能需要一定时间..., 执行命令: timeout -k 10s 5m {{ master_kubeadm_join }} \
       --control-plane \
+      --cri-socket=unix://{{ cri_socket }} \
       --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
       --ignore-preflight-errors=all \
       --v=5"
+
 - name: 其他 master 节点加入集群
   changed_when: true
   ansible.builtin.shell: >
     timeout -k 10s 5m {{ master_kubeadm_join }} \
       --control-plane \
+      --cri-socket=unix://{{ cri_socket }} \
       --node-name={{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} \
       --ignore-preflight-errors=all \
       --v=5

@@ -300,7 +300,7 @@ kubeReserved:
   cpu: 50m
   memory: 256Mi
 {% endif %}
-  ephemeral-storage: "1Gi"
+  ephemeral-storage: "4Gi"
   pid: 500
 kubeReservedCgroup: "/kube.slice"  # 指定 kube 资源预留的 cgroup
 {% endif %}
@@ -315,7 +315,7 @@ systemReserved:
   cpu: 50m
   memory: 256Mi
 {% endif %}
-  ephemeral-storage: "1Gi"
+  ephemeral-storage: "4Gi"
   pid: 500
 systemReservedCgroup: "/system.slice"  # 指定 system 资源预留的
 {% endif %}

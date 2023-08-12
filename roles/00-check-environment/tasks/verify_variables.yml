@@ -49,9 +49,16 @@
         that: lb_apiserver_ip != "{{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}"
         msg: "lb_apiserver_ip 不能设置为集群节点的 IP。"
 
-- name: 校验 k8s 版本和container runtime 关联, 默认 1.24+ 版本废弃 docker 只能使用 containerd
+- name: 校验 container runtime 关联 k8s 版本, 默认 1.24 以上版本只能使用 containerd 或者 cri-dockerd
   when: kube_version is version('1.24.0', '>=')
   run_once: true
   ansible.builtin.assert:
-    that: container_runtime == 'containerd'
-    msg: "当前安装 kubernetes 版本为{{ kube_version }}, 不支持使用 docker 为容器运行时, 1.24+版本已废弃 docker, 请修改 container_runtime 为 containerd"
+    that: container_runtime == 'containerd' or container_runtime == 'cri-dockerd'
+    msg: "当前安装 kubernetes 版本为{{ kube_version }}, 不支持使用 docker 为容器运行时, 1.24+版本已废弃 docker, 请修改 container_runtime 为 containerd 或 cri-dockerd"
+
+- name: 校验 container runtime 关联 k8s 版本, 1.24 以下版本无需使用 cri-dockerd
+  when: kube_version is version('1.24.0', '<')
+  run_once: true
+  ansible.builtin.assert:
+    that: container_runtime != 'cri-dockerd'
+    msg: "当前安装 kubernetes 版本为{{ kube_version }}, 低版本无需使用 cri-dockerd"

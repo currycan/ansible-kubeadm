@@ -42,7 +42,7 @@ proxy_user=""
 proxy_passwd=""
 no_proxy="registry.local.com,repo.local.com,localhost,127.0.0.1,::1,127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 
-# 设定容器运行时, 可选 docker 和 containerd
+# 设定容器运行时, 可选 docker/containerd/cri-dockerd
 container_runtime=containerd
 # 开启 proxy, 可访问gcr, 加速下载 GitHub 文件
 enable_proxy=true

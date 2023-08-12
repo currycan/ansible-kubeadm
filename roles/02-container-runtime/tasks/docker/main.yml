@@ -30,31 +30,31 @@
     # 私有仓库自签证书认证
     # - { src: "certs.d", dest: "{{ docker_etc_dir }}", mode: "0644" }
 
-- name: 判断是否为 GPU 节点
-  ansible.builtin.stat:
-    path: "/usr/bin/nvidia-smi"
-  register: check_gpu_node
+# - name: 判断是否为 GPU 节点
+#   ansible.builtin.stat:
+#     path: "/usr/bin/nvidia-smi"
+#   register: check_gpu_node
 
-- name: 安装 nvidia-docker
-  when: check_gpu_node.stat.exists
-  block:
-    - name: 配置 nvidia-docker.repo
-      ansible.builtin.copy:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-        mode: "{{ item.mode }}"
-      with_items:
-        - { src: "nvidia-docker.repo", dest: "/etc/yum.repos.d/", mode: "0644" }
+# - name: 安装 nvidia-docker
+#   when: check_gpu_node.stat.exists
+#   block:
+#     - name: 配置 nvidia-docker.repo
+#       ansible.builtin.copy:
+#         src: "{{ item.src }}"
+#         dest: "{{ item.dest }}"
+#         mode: "{{ item.mode }}"
+#       with_items:
+#         - { src: "nvidia-docker.repo", dest: "/etc/yum.repos.d/", mode: "0644" }
 
-    - name: 安装 nvidia-container-runtime
-      ansible.builtin.package:
-        name:
-          - nvidia-container-runtime
+#     - name: 安装 nvidia-container-runtime
+#       ansible.builtin.package:
+#         name:
+#           - nvidia-container-runtime
 
-- name: 获取 GPU 节点
-  when: check_gpu_node.stat.exists
-  ansible.builtin.set_fact:
-    gpu_node: true
+# - name: 获取 GPU 节点
+#   when: check_gpu_node.stat.exists
+#   ansible.builtin.set_fact:
+#     gpu_node: true
 
 - name: 配置 Docker engine
   ansible.builtin.template:
@@ -92,7 +92,7 @@
 
 - name: 启动 Docker engine, 并设置开机启动
   ansible.builtin.systemd:
-    name: docker
+    name: docker.service
     daemon_reload: true
     state: restarted
     enabled: true

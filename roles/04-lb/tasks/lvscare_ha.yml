@@ -10,9 +10,8 @@
           {% for domain in kube_master_external_domain.split(',') %}
           {% if inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | difference(groups['kube_masters']) | unique) %}
           {{ lb_apiserver_ip }} {{ domain | trim }}
-          {% else %}
+          {% elif inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | difference(groups['kube_nodes']) | unique) %}
           {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }} {{ domain | trim }}
-          {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }} {{ domain | trim }}
           {% endif %}
           {% endfor %}
         mode: 0644

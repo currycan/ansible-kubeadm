@@ -5,8 +5,10 @@ cgroup_driver: systemd
 cri_socket: >-
   {%- if container_runtime == 'containerd' -%}
     /run/containerd/containerd.sock
-  {%- else -%}
+  {%- elif container_runtime == 'docker' -%}
     /var/run/dockershim.sock
+  {%- elif container_runtime == 'cri-dockerd' -%}
+    /var/run/cri-dockerd.sock
   {%- endif -%}
 
 # 定义国内加速镜像地址

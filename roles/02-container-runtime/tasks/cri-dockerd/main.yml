@@ -1,0 +1,27 @@
+---
+- name: 配置 cri-dockerd
+  ansible.builtin.template:
+    src: "cri-dockerd/{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  with_items:
+    - { src: "cri-dockerd.service", dest: "{{ systemd_service_dir }}/cri-dockerd.service" }
+    - { src: "cri-dockerd.socket", dest: "{{ systemd_service_dir }}/cri-dockerd.socket" }
+
+- name: 启动 cri-dockerd socket
+  ansible.builtin.systemd:
+    name: cri-dockerd.socket
+    daemon_reload: true
+    state: started
+    enabled: true
+
+- name: 启动 cri-dockerd engine, 并设置开机启动
+  ansible.builtin.systemd:
+    name: cri-dockerd.service
+    daemon_reload: true
+    state: restarted
+    enabled: true
+  register: started_cri_docker
+  until: started_cri_docker.status.ActiveState == "active"
+  retries: 3
+  delay: "{{ retry_stagger }}"
