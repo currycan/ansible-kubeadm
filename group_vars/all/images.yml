@@ -1,0 +1,52 @@
+---
+images:
+  haproxy:
+    name: "docker.io/haproxy:2.3-alpine"
+    type: master
+  envoy:
+    name: "docker.io/envoyproxy/envoy-alpine:v1.17.1"
+    type: master
+  nginx:
+    name: "docker.io/library/nginx:1.19-alpine"
+    type: master
+  openresty:
+    name: "docker.io/openresty/openresty:1.19.3.1-alpine"
+    type: master
+
+  kuboard:
+    name: "swr.cn-east-2.myhuaweicloud.com/kuboard/kuboard:v3"
+    type: node
+  kuboard_etcd:
+    name: "swr.cn-east-2.myhuaweicloud.com/kuboard/etcd-host:3.4.16-2"
+    type: node
+  kuboard_agent:
+    name: "swr.cn-east-2.myhuaweicloud.com/kuboard/kuboard-agent"
+    type: node
+  kuboard_questdb:
+    name: "swr.cn-east-2.myhuaweicloud.com/kuboard-dependency/questdb:6.0.4"
+    type: node
+
+  npd:
+    name: "registry.k8s.io/node-problem-detector/node-problem-detector:v0.8.13"
+    type: node
+
+  calico_cni:
+    name: "docker.io/calico/cni:v3.22.5"
+  calico_node:
+    name: "docker.io/calico/node:v3.22.5"
+  calico_typha:
+    name: "docker.io/calico/typha:v3.22.5"
+  calico_pod2daemon:
+    name: "docker.io/calico/pod2daemon-flexvol:v3.22.5"
+  calico_operator:
+    name: "quay.io/tigera/operator:v1.25.13"
+  calico_controllers:
+    name: "docker.io/calico/kube-controllers:v3.22.5"
+  calico_apiserver:
+    name: "docker.io/calico/apiserver:v3.22.5"
+
+  nfs_provisioner:
+    name: "registry.k8s.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2"
+
+  metrics_server:
+    name: "registry.k8s.io/metrics-server/metrics-server:v0.6.3"

@@ -1,4 +1,13 @@
 ---
+lb_secure_port: >-
+  {%- if (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length == 1 -%}
+    6443
+  {%- elif lb_mode == "envoy" or lb_mode == "haproxy" or lb_mode == "nginx" or lb_mode == "openresty" -%}
+    8443
+  {%- else -%}
+    6443
+  {%- endif -%}
+
 # kubelet 参数
 kubelet_max_pods: 100
 

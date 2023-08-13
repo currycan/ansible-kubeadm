@@ -59,7 +59,7 @@ etcd_domain_name="k8s.etcd.local,etcd.local.com"
 cluster_name=kubernetes
 cluster_domain_name="cluster.local"
 
-# Kubernetes 高可用虚IP, 支持 slb/kube-lvscare/kube-vip
+# Kubernetes 高可用虚IP, 支持 slb/kube-lvscare/kube-vip/envoy/haproxy/nginx/openresty
 # lb_mode="kube-vip"
 # lb_apiserver_ip="10.10.10.49"
 lb_mode="kube-lvscare"

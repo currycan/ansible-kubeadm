@@ -82,10 +82,10 @@ data:
   KUBOARD_AGENT_SERVER_TCP_PORT: '30081'
   KUBOARD_SERVER_LOGRUS_LEVEL: 'info'  # error / debug / trace
   # KUBOARD_AGENT_KEY 是 Agent 与 Kuboard 通信时的密钥,请修改为一个任意的包含字母、数字的32位字符串,此密钥变更后,需要删除 Kuboard Agent 重新导入。
-  # KUBOARD_AGENT_KEY: "{{ lookup('password', '/dev/null length=32 chars=digits,ascii_letters,digits') | lower }}"
+  # KUBOARD_AGENT_KEY: '{{ lookup('password', '/dev/null length=32 chars=digits,ascii_letters,digits') | lower }}'
   KUBOARD_AGENT_KEY: 'cb1gjzv7ut0nsx1a3be3d7z5c7xdss95'
-  KUBOARD_AGENT_IMAG: 'swr.cn-east-2.myhuaweicloud.com/kuboard/kuboard-agent'
-  KUBOARD_QUESTDB_IMAGE: 'swr.cn-east-2.myhuaweicloud.com/kuboard-dependency/questdb:6.0.4'
+  KUBOARD_AGENT_IMAG: '{{ images.kuboard_agent.name }}'
+  KUBOARD_QUESTDB_IMAGE: '{{ images.kuboard_agent.name }}'
   KUBOARD_DISABLE_AUDIT: 'false' # 如果要禁用 Kuboard 审计功能，将此参数的值设置为 'true'，必须带引号。
   KUBOARD_ADMIN_DERAULT_PASSWORD: 'Kuboard123'
 
@@ -157,7 +157,7 @@ spec:
                       - etcd
       containers:
         - name: etcd
-          image: 'swr.cn-east-2.myhuaweicloud.com/kuboard/etcd-host:3.4.16-2'
+          image: '{{ images.kuboard_etcd.name }}'
           imagePullPolicy: Always
           resources:
             limits:
@@ -258,7 +258,7 @@ spec:
           #     weight: 100
       containers:
         - name: kuboard
-          image: 'swr.cn-east-2.myhuaweicloud.com/kuboard/kuboard:v3'
+          image: '{{ images.kuboard.name }}'
           imagePullPolicy: Always
           resources:
             limits:

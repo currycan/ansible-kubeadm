@@ -29,8 +29,8 @@
     - name: 校验 lb 模式类型
       run_once: true
       ansible.builtin.assert:
-        that: lb_mode in ['slb', 'kube-vip', 'kube-lvscare']
-        msg: "不支持当前 {{ lb_mode }} 负载均衡模式, 请在 ['slb', 'kube-vip', 'kube-lvscare'] 中进行选择。"
+        that: lb_mode in ['slb', 'kube-vip', 'kube-lvscare', 'openresty','nginx','haproxy','envoy']
+        msg: "不支持当前 {{ lb_mode }} 负载均衡模式, 请在 ['slb', 'kube-vip', 'kube-lvscare', 'openresty','nginx','haproxy','envoy'] 中进行选择。"
 
     - name: 校验 lb_apiserver_ip 是否赋值
       run_once: true

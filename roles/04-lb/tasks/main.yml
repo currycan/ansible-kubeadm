@@ -1,5 +1,5 @@
 ---
-- name: 单节点集群添加 kube-apiserver 域名到 hosts 文件中
+- name: 单节点集群, 添加 kube-apiserver 域名到 hosts 文件中
   when: (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length == 1
   ansible.builtin.blockinfile:
     path: "/etc/hosts"
@@ -12,6 +12,64 @@
     create: true
     backup: true
     marker: "# Ansible kube-apiserver domain {mark}"
+
+- name: kube-lvscare 高可用方案, 添加 kube-apiserver 域名到 hosts 文件中
+  when: lb_mode == "kube-lvscare"
+  ansible.builtin.blockinfile:
+    path: "/etc/hosts"
+    block: |-
+      {% for domain in kube_master_external_domain.split(',') %}
+      {% if inventory_hostname in (groups['kube_nodes'] | difference(groups['delete_nodes']) | difference(groups['kube_masters']) | unique) %}
+      {{ lb_apiserver_ip }} {{ domain | trim }}
+      {% elif inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | difference(groups['kube_nodes']) | unique) %}
+      {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }} {{ domain | trim }}
+      {% endif %}
+      {% endfor %}
+    mode: 0644
+    state: present
+    create: true
+    backup: true
+    marker: "# Ansible kube-apiserver domain {mark}"
+
+- name: slb/kube-vip 高可用方案, 添加 kube-apiserver 域名到 hosts 文件中
+  when: lb_mode == "slb" or lb_mode == "kube-vip"
+  ansible.builtin.blockinfile:
+    path: "/etc/hosts"
+    block: |-
+      {% for domain in kube_master_external_domain.split(',') %}
+      {{ lb_apiserver_ip }} {{ domain | trim }}
+      {% endfor %}
+    mode: 0644
+    state: present
+    create: true
+    backup: true
+    marker: "# Ansible kube-apiserver domain {mark}"
+
+- name: 其他高可用方案(envoy/haproxy/nginx/openresty), 添加 kube-apiserver 域名到 hosts 文件中
+  when:
+    - lb_mode != "slb"
+    - lb_mode != "kube-vip"
+    - lb_mode != "kube-lvscare"
+  ansible.builtin.blockinfile:
+    path: "/etc/hosts"
+    block: |-
+      {% for domain in kube_master_external_domain.split(',') %}
+      127.0.0.1 {{ domain | trim }}
+      {% endfor %}
+    mode: 0644
+    state: present
+    create: true
+    backup: true
+    marker: "# Ansible kube-apiserver domain {mark}"
+
+- name: 创建 {{ lb_mode }} 依赖目录
+  when: lb_mode == "envoy" or lb_mode == "haproxy" or lb_mode == "nginx" or lb_mode == "openresty"
+  ansible.builtin.file:
+    name: "{{ item }}"
+    state: directory
+    mode: 0644
+  with_items:
+    - "{{ lb_config_dir }}"
 
 - name: 确认 LB 服务是否正常运行
   when:
@@ -41,17 +99,46 @@
       register: lb_running
 
     - name: LB 安装
-      when:
-        - not lb_running.stdout | bool
+      when: not lb_running.stdout | bool
       block:
-        - name: 安装 kube-lvscare
-          when:
-            - lb_mode == "kube-lvscare"
-            - "inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)"
-          ansible.builtin.include_tasks: lvscare_ha.yml
-
-        - name: 安装 kube-vip
+        - name: 配置 kube-vip, 生成 kube-vip static pod 配置文件
           when:
             - lb_mode == "kube-vip"
             - inventory_hostname in (groups['kube_masters'] | difference(groups['delete_masters']) | unique)
-          ansible.builtin.include_tasks: vip_ha.yml
+          ansible.builtin.template:
+            src: "{{ item.src }}.j2"
+            dest: "{{ item.dest }}"
+            mode: "0644"
+          with_items:
+            # kube-vip
+            - { src: "kube-vip/lb-kube-vip.yaml", dest: "{{ manifest_dir }}/lb-kube-vip.yaml", lb: "kube-vip" }
+
+        - name: 配置 {{ lb_mode }}, 生成 {{ lb_mode }} static pod 配置文件
+          when:
+            - item.lb == lb_mode
+            - "inventory_hostname in (groups['kube_cluster'] | difference(groups['delete_masters']) | difference(groups['delete_nodes']) | unique)"
+          ansible.builtin.template:
+            src: "{{ item.src }}.j2"
+            dest: "{{ item.dest }}"
+            mode: "0644"
+          with_items:
+            # envoy
+            - { src: "envoy/envoy.conf.yaml", dest: "{{ lb_config_dir }}/envoy.yaml", lb: "envoy" }
+            - { src: "envoy/envoy.yaml", dest: "{{ manifest_dir }}/lb-envoy.yaml", lb: "envoy" }
+            # haproxy
+            - { src: "haproxy/haproxy.cfg", dest: "{{ lb_config_dir }}/haproxy.cfg", lb: "haproxy" }
+            - { src: "haproxy/haproxy.yaml", dest: "{{ manifest_dir }}/lb-haproxy.yaml", lb: "haproxy" }
+            # nginx
+            - { src: "nginx/nginx.conf", dest: "{{ lb_config_dir }}/nginx.conf", lb: "nginx" }
+            - { src: "nginx/nginx.yaml", dest: "{{ manifest_dir }}/lb-nginx.yaml", lb: "nginx" }
+            # openresty
+            - { src: "nginx/nginx.conf", dest: "{{ lb_config_dir }}/nginx.conf", lb: "openresty" }
+            - { src: "openresty/openresty.yaml", dest: "{{ manifest_dir }}/lb-openresty.yaml", lb: "openresty" }
+            # kube-vip
+            - { src: "kube-vip/lb-kube-vip.yaml", dest: "{{ manifest_dir }}/lb-kube-vip.yaml", lb: "kube-vip" }
+            # kube-lvscare
+            - { src: "kube-lvscare/lb-kube-lvscare.yaml", dest: "{{ manifest_dir }}/lb-kube-lvscare.yaml", lb: "kube-lvscare" }
+
+        - name: 启动高可用方案
+          when: lb_mode != "kube-vip"
+          ansible.builtin.include_tasks: all.yml

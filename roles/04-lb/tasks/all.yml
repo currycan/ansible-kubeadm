@@ -1,0 +1,78 @@
+---
+- name: 确保 kubelet 除临时配置外, 暂无其他配置
+  ansible.builtin.file:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ systemd_service_dir }}/kubelet.service.d/10-kubeadm.conf"
+    - "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf"
+    - "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf"
+
+- name: 渲染临时 kubelet 启动文件
+  ansible.builtin.template:
+    src: "{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  with_items:
+    - { src: "kubelet/99-kubelet-override.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/99-kubelet-override.conf" }
+    - { src: "kubelet/kubelet-override-config.yml", dest: "{{ kubelet_data_dir }}/config.yaml" }
+
+- name: 启动 kubelet, bootstrap lb 服务
+  ansible.builtin.systemd:
+    name: kubelet
+    daemon_reload: true
+    state: restarted
+    enabled: true
+  register: started_kubelet
+  until: started_kubelet is succeeded
+  retries: 3
+  delay: "{{ retry_stagger }}"
+
+
+- name: "以轮询的方式等待 {{ lb_mode }} 启动完成"
+  when: lb_mode == "kube-lvscare"
+  changed_when: true
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    pgrep lvscare || exit 1
+  register: lb_status
+  until: lb_status.rc == 0
+  retries: 8
+  delay: 15
+
+- name: 以轮询的方式等待 {{ lb_mode }} 启动完成
+  when: lb_mode == "envoy" or lb_mode == "haproxy" or lb_mode == "nginx" or lb_mode == "openresty"
+  changed_when: true
+  ansible.builtin.shell: >-
+    nc -z -w 3 127.0.0.1 {{ lb_secure_port }};
+  register: lb_status
+  until: lb_status.rc == 0
+  retries: 8
+  delay: 15
+
+- name: 停止 kubelet
+  ansible.builtin.systemd:
+    name: kubelet
+    daemon_reload: true
+    state: stopped
+    enabled: true
+
+- name: 移除 kubelet 临时配置文件
+  ansible.builtin.file:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ systemd_service_dir }}/kubelet.service.d/99-kubelet-override.conf"
+    - "{{ kubelet_data_dir }}/config.yaml"
+    - "{{ kubelet_data_dir }}/cpu_manager_state"
+    - "{{ kubelet_data_dir }}/memory_manager_state"
+
+- name: 渲染 kubelet 正式启动文件
+  ansible.builtin.template:
+    src: "{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  with_items:
+    - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/10-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/10-kubeadm.conf" }
+    - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-container-runtime.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf" }
+    - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-cgroup.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf" }

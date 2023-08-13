@@ -79,7 +79,7 @@ spec:
         - --config.system-log-monitor=/config/kernel-monitor.json,{% if container_runtime == 'docker' %}/config/docker-monitor.json,{% endif %}/config/abrt-adaptor.json,/config/systemd-monitor.json
         - --config.system-stats-monitor=/config/net-cgroup-system-stats-monitor.json,/config/system-stats-monitor.json
         - --config.custom-plugin-monitor=/config/health-checker-kubelet.json,/config/network-problem-monitor.json,/config/kernel-monitor-counter.json,{% if container_runtime == 'docker' %}/config/docker-monitor-counter.json,/config/health-checker-docker.json,{% endif %}/config/systemd-monitor-counter.json
-        image: registry.k8s.io/node-problem-detector/node-problem-detector:v0.8.13
+        image: {{ images.npd.name }}
         resources:
           limits:
             cpu: 1000m

@@ -1,0 +1,37 @@
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    daemon
+
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option                  http-server-close
+    option forwardfor       except 127.0.0.0/8
+    option                  redispatch
+    retries                 1
+    timeout http-request    10s
+    timeout queue           20s
+    timeout connect         5000
+    timeout client          10m
+    timeout server          10m
+    timeout http-keep-alive 10s
+    timeout check           10s
+
+frontend apiserver
+    bind :8443
+    mode tcp
+    option tcplog
+    default_backend apiserver
+
+backend apiserver
+    option httpchk GET /healthz
+    http-check expect status 200
+    mode tcp
+    option ssl-hello-chk
+    balance leastconn
+{% for host in (groups['kube_masters'] | difference(groups['delete_masters']) | unique) %}
+    server {{ hostvars[host].ansible_hostname | lower }} {{ hostvars[inventory_hostname]['ansible_' + iface].ipv4.address }}:6443 check inter 2000 fall 2 rise 2 weight 1
+{% endfor %}

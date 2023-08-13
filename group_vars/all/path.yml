@@ -25,6 +25,7 @@ etcd_data_bak_dir: /data_bak/etcd
 
 # kubernetes paths
 kubernetes_etc_dir: /etc/kubernetes
+lb_config_dir: "{{ kubernetes_etc_dir }}/lb-config"
 kubernetes_log_dir: /var/log/kubernetes
 kubelet_data_dir: /var/lib/kubelet
 manifest_dir: "{{ kubernetes_etc_dir }}/manifests"
