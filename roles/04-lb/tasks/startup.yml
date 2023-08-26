@@ -28,7 +28,6 @@
   retries: 3
   delay: "{{ retry_stagger }}"
 
-
 - name: "以轮询的方式等待 {{ lb_mode }} 启动完成"
   when: lb_mode == "kube-lvscare"
   changed_when: true
@@ -37,8 +36,8 @@
     pgrep lvscare || exit 1
   register: lb_status
   until: lb_status.rc == 0
-  retries: 8
-  delay: 15
+  retries: 15
+  delay: 20
 
 - name: 以轮询的方式等待 {{ lb_mode }} 启动完成
   when: lb_mode == "envoy" or lb_mode == "haproxy" or lb_mode == "nginx" or lb_mode == "openresty"
@@ -47,8 +46,8 @@
     nc -z -w 3 127.0.0.1 {{ lb_secure_port }};
   register: lb_status
   until: lb_status.rc == 0
-  retries: 8
-  delay: 15
+  retries: 15
+  delay: 20
 
 - name: 停止 kubelet
   ansible.builtin.systemd:

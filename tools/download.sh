@@ -211,7 +211,7 @@ function download_docker_binary (){
     log::info "docker 二进制包下载完成"
 }
 
-function download_cri-dockerd_binary (){
+function download_cri_dockerd_binary (){
     log::info ">>>>>> 开始下载 cri-dockerd 二进制包"
     if version_ge $KUBE_VERSION '1.24.0';then
         if [ ! -d ${BINARY_DIR}/cri-dockerd ];then
@@ -404,6 +404,7 @@ function download () {
     download_kernel_rpm
     download_chrony_rpm
     download_container_runtime_rpm
+    download_cri_dockerd_binary
     download_dependence_rpm
     download_containerd_binary
     download_docker_binary

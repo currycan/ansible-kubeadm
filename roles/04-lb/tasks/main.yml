@@ -62,6 +62,15 @@
     backup: true
     marker: "# Ansible kube-apiserver domain {mark}"
 
+- name: 确认没有运行其他负载均衡器
+  when: lb_mode == "envoy" or lb_mode == "haproxy" or lb_mode == "nginx" or lb_mode == "openresty"
+  ansible.builtin.file:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ lb_config_dir }}"
+    - "{{ manifest_dir }}/lb-apisever.yaml"
+
 - name: 创建 {{ lb_mode }} 依赖目录
   when: lb_mode == "envoy" or lb_mode == "haproxy" or lb_mode == "nginx" or lb_mode == "openresty"
   ansible.builtin.file:
@@ -85,9 +94,9 @@
         for lb in ${lb_srvs};
         do
         {% if container_runtime == 'containerd' -%}
-          [ `crictl ps --name=lb-${lb}.* --state running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
+          [ `crictl ps --name=lb-apisever.* --state running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
         {% else -%}
-          [ `docker ps --filter name=k8s_lb-${lb}.* --filter status=running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
+          [ `docker ps --filter name=k8s_lb-apisever.* --filter status=running | wc -l` -eq 2 ] && lb_running_num=`expr $lb_running_num + 1`;
         {%- endif -%}
         done;
         if [ $lb_running_num -eq 1 ];then
@@ -111,7 +120,7 @@
             mode: "0644"
           with_items:
             # kube-vip
-            - { src: "kube-vip/lb-kube-vip.yaml", dest: "{{ manifest_dir }}/lb-kube-vip.yaml", lb: "kube-vip" }
+            - { src: "kube-vip/lb-kube-vip.yaml", dest: "{{ manifest_dir }}/lb-apisever.yaml", lb: "kube-vip" }
 
         - name: 配置 {{ lb_mode }}, 生成 {{ lb_mode }} static pod 配置文件
           when:
@@ -124,21 +133,21 @@
           with_items:
             # envoy
             - { src: "envoy/envoy.conf.yaml", dest: "{{ lb_config_dir }}/envoy.yaml", lb: "envoy" }
-            - { src: "envoy/envoy.yaml", dest: "{{ manifest_dir }}/lb-envoy.yaml", lb: "envoy" }
+            - { src: "envoy/envoy.yaml", dest: "{{ manifest_dir }}/lb-apisever.yaml", lb: "envoy" }
             # haproxy
             - { src: "haproxy/haproxy.cfg", dest: "{{ lb_config_dir }}/haproxy.cfg", lb: "haproxy" }
-            - { src: "haproxy/haproxy.yaml", dest: "{{ manifest_dir }}/lb-haproxy.yaml", lb: "haproxy" }
+            - { src: "haproxy/haproxy.yaml", dest: "{{ manifest_dir }}/lb-apisever.yaml", lb: "haproxy" }
             # nginx
             - { src: "nginx/nginx.conf", dest: "{{ lb_config_dir }}/nginx.conf", lb: "nginx" }
-            - { src: "nginx/nginx.yaml", dest: "{{ manifest_dir }}/lb-nginx.yaml", lb: "nginx" }
+            - { src: "nginx/nginx.yaml", dest: "{{ manifest_dir }}/lb-apisever.yaml", lb: "nginx" }
             # openresty
             - { src: "nginx/nginx.conf", dest: "{{ lb_config_dir }}/nginx.conf", lb: "openresty" }
-            - { src: "openresty/openresty.yaml", dest: "{{ manifest_dir }}/lb-openresty.yaml", lb: "openresty" }
-            # kube-vip
-            - { src: "kube-vip/lb-kube-vip.yaml", dest: "{{ manifest_dir }}/lb-kube-vip.yaml", lb: "kube-vip" }
+            - { src: "openresty/openresty.yaml", dest: "{{ manifest_dir }}/lb-apisever.yaml", lb: "openresty" }
             # kube-lvscare
-            - { src: "kube-lvscare/lb-kube-lvscare.yaml", dest: "{{ manifest_dir }}/lb-kube-lvscare.yaml", lb: "kube-lvscare" }
+            - { src: "kube-lvscare/lb-kube-lvscare.yaml", dest: "{{ manifest_dir }}/lb-apisever.yaml", lb: "kube-lvscare" }
 
         - name: 启动高可用方案
-          when: lb_mode != "kube-vip"
-          ansible.builtin.include_tasks: all.yml
+          when:
+            - lb_mode != "slb"
+            - lb_mode != "kube-vip"
+          ansible.builtin.include_tasks: startup.yml
