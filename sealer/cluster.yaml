@@ -303,7 +303,7 @@ clientConnection:
 clusterCIDR: "172.30.0.0/16"
 configSyncPeriod: 10m0s
 conntrack:
-  maxPerCore: 32768
+  maxPerCore: 655360
   min: 131072
   tcpCloseWaitTimeout: 1h0m0s
   tcpEstablishedTimeout: 24h0m0s
@@ -323,10 +323,6 @@ ipvs:
   scheduler: "rr"
   # metalLB
   strictARP: true
-  syncPeriod: 30s
-  tcpFinTimeout: 5s
-  tcpTimeout: 5s
-  udpTimeout: 5s
 nodePortAddresses: []
 oomScoreAdj: -999
 portRange: ""

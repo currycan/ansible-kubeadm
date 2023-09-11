@@ -177,6 +177,7 @@ scheduler_extra_volumes:
     mountPath: /etc/kubernetes/pki
     readOnly: true
 
+# https://help.aliyun.com/zh/ack/ack-managed-and-ack-dedicated/user-guide/faq-about-container-networks
 kube_proxy:
   proxy_mode: ipvs
   scheduler: rr

@@ -414,7 +414,7 @@ clientConnection:
 clusterCIDR: "{{ pod_network_cidr }}"
 configSyncPeriod: 10m0s
 conntrack:
-  maxPerCore: 65536
+  maxPerCore: 655360
   min: 131072
   tcpCloseWaitTimeout: 1h0m0s
   tcpEstablishedTimeout: 24h0m0s
@@ -443,9 +443,9 @@ ipvs:
   strictARP: true
 {% endif %}
   syncPeriod: 30s
-  tcpFinTimeout: 5s
-  tcpTimeout: 5s
-  udpTimeout: 5s
+  tcpFinTimeout: 120s
+  tcpTimeout: 3600s
+  udpTimeout: 300s
 nodePortAddresses: []
 oomScoreAdj: -999
 portRange: ""
