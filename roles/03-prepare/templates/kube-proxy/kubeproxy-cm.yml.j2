@@ -43,10 +43,12 @@ data:
       # metalLB
       strictARP: true
 {% endif %}
+{% if (kube_version is version('1.16.0', '>=')) %}
       syncPeriod: 30s
       tcpFinTimeout: 120s
       tcpTimeout: 3600s
-      udpTimeout: 300s
+      udpTimeout: 10s # 此处默认为300秒,调整成10秒可以将IPVS UDP类型后端摘除后丢包问题的影响时间缩短到10秒。
+{% endif %}
     nodePortAddresses: []
     oomScoreAdj: -999
     portRange: ""
