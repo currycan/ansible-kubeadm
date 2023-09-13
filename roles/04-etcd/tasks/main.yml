@@ -32,9 +32,9 @@
   - name: 启动服务, 并设置开机启动
     ansible.builtin.systemd:
       name: etcd
-      daemon_reload: yes
+      daemon_reload: true
       state: restarted
-      enabled: yes
+      enabled: true
     register: started_etcd
     until: started_etcd.status.ActiveState == "active"
     retries: 3

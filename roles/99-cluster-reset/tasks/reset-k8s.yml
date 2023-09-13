@@ -2,6 +2,7 @@
 - name: 所有节点停止运行相关组件
   ansible.builtin.systemd:
     name: "{{ item }}"
+    daemon_reload: true
     state: stopped
     enabled: false
   with_items:
@@ -129,6 +130,7 @@
       {%- elif ansible_os_family == "Debian" -%}
         networking
       {%- endif %}
+    daemon_reload: true
     state: restarted
 
 - name: 清理 'calico' 路由

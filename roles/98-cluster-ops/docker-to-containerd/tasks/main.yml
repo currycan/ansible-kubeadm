@@ -33,6 +33,7 @@
   - name: 停止 kubelet 服务
     ansible.builtin.systemd:
       name: kubelet
+      daemon_reload: true
       state: stopped
       enabled: true
 
@@ -61,12 +62,14 @@
   - name: 停止 docker 服务
     ansible.builtin.systemd:
       name: docker
+      daemon_reload: true
       state: stopped
   #     enabled: false
 
   - name: 停止 containerd 服务
     ansible.builtin.systemd:
       name: containerd
+      daemon_reload: true
       state: stopped
       enabled: true
 

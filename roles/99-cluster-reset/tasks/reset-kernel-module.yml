@@ -2,6 +2,7 @@
 - name: 停用systemd自动加载模块服务
   ansible.builtin.systemd:
     name: systemd-modules-load
+    daemon_reload: true
     state: stopped
     enabled: false
   register: stop_modules_result

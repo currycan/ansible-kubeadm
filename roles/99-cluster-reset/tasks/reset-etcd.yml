@@ -1,8 +1,15 @@
 ---
+- name: 获取主机所有 service
+  ansible.builtin.service_facts:
+
 - name: 停止运行 etcd
-  when: etcd_external | bool
+  when:
+    - etcd_external | bool
+    - "'etcd.service' in services"
+  register: service_stop
   ansible.builtin.systemd:
     name: etcd
+    daemon_reload: true
     state: stopped
     enabled: no
 

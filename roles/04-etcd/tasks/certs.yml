@@ -6,9 +6,17 @@
     mode: "0644"
   with_items:
     - "{{ etcd_pki_dir }}"
-    - "{{ k8s_pki_dir }}"
 
-- name: 创建证书
+- name: 使用 kubeadm 方式创建证书
+  when: certs_way == 'kubeadm'
+  run_once: true
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+  block:
+    - name: 创建集群相关证书
+      ansible.builtin.include_tasks: "_kubeadm.yml"
+
+- name: 使用 openssl 方式创建证书
+  when: certs_way == 'openssl'
   run_once: true
   delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
   block:

@@ -4,6 +4,7 @@
   block:
   - name: Kubelet 开机自启
     ansible.builtin.systemd:
+      daemon_reload: true
       name: kubelet
       enabled: true
   # Error from server: Get "https://10.0.1.4:10250/containerLogs/kube-system/kube-apiserver-10.0.1.4/kube-apiserver?follow=true": remote error: tls: internal error

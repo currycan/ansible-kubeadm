@@ -1,0 +1,31 @@
+---
+- name: "第一个 master 节点: {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}, 手动生成 kubernetes 集群 CA 证书, 过期时间: {{ certs_expired }} 天"
+  changed_when: true
+  run_once: true
+  delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+  ansible.builtin.shell: >
+    set -o pipefail;
+    openssl req -x509 -sha256 -newkey rsa:2048 \
+      -keyout {{ etcd_ca_key }} \
+      -out {{ etcd_ca }} \
+      -days {{ certs_expired }} \
+      -nodes -subj '/CN=etcd-ca';
+
+- name: "第一个 master 节点: {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}, 配置临时文件 kubeadm-etcd-certs.yaml 用于生成证书"
+  ansible.builtin.template:
+    src: "{{ inventory_dir }}/roles/04-etcd/templates/kubeadm-etcd-certs.yaml.j2"
+    dest: "{{ kubernetes_etc_dir }}/kubeadm-etcd-certs.yaml"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+
+- name: "第一个 master 节点: {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}, 生成 etcd 集群证书"
+  changed_when: true
+  ansible.builtin.shell: >
+    kubeadm init phase certs etcd-server --config={{ kubernetes_etc_dir }}/kubeadm-etcd-certs.yaml;
+    kubeadm init phase certs etcd-peer --config={{ kubernetes_etc_dir }}/kubeadm-etcd-certs.yaml;
+    kubeadm init phase certs etcd-healthcheck-client --config={{ kubernetes_etc_dir }}/kubeadm-etcd-certs.yaml;
+    kubeadm init phase certs apiserver-etcd-client --config={{ kubernetes_etc_dir }}/kubeadm-etcd-certs.yaml;
+    /usr/local/bin/update-kubeadm-cert.sh etcd
+  environment:
+    ENABLE_INIT: true
