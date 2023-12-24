@@ -1,0 +1,85 @@
+---
+- name: Add a repository
+  kubernetes.core.helm_repository:
+    name: metallb
+    repo_url: https://metallb.github.io/metallb
+
+- name: Update helm repo
+  ansible.builtin.command: helm repo update
+
+- name: Deploy latest version of Metallb chart inside metallb-system namespace
+  kubernetes.core.helm:
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    name: metallb
+    chart_ref: metallb/metallb
+    release_namespace: metallb-system
+    create_namespace: true
+    #wait: true
+    #atomic: true
+    values:
+      speaker:
+        nodeSelector:
+          node-role.kubernetes.io: gw
+        tolerations:
+          - key: "{{ metallb_taint }}"
+            effect: NoSchedule
+      prometheus:
+        namespace: "{{ prometheus_stack_namespace }}"
+        serviceAccount: "monitoring-kube-prometheus-prometheus"
+        serviceMonitor:
+          enabled: true
+          speaker:
+            additionalLabels:
+              release: "{{ prometheus_stack_release_name }}"
+          controller:
+            additionalLabels:
+              release: "{{ prometheus_stack_release_name }}"
+        prometheusRule:
+          enabled: true
+          additionalLabels:
+              release: "{{ prometheus_stack_release_name }}"
+              app: kube-prometheus-stack
+
+- name: Label metallb namespace
+  kubernetes.core.k8s:
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    state: patched
+    kind: Namespace
+    name: metallb-system
+    definition:
+      metadata:
+        labels:
+          pod-security.kubernetes.io/enforce: privileged
+          pod-security.kubernetes.io/audit: privileged
+          pod-security.kubernetes.io/warn: privileged
+
+- name: Wait for metallb pods become ready
+  ansible.builtin.command: "kubectl wait --namespace=metallb-system --for=condition=Ready --all pods --timeout=600s"
+
+- name: Configure metallb address pool
+  kubernetes.core.k8s:
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    state: present
+    definition:
+      apiVersion: metallb.io/v1beta1
+      kind: IPAddressPool
+      metadata:
+        name: ingress-pool
+        namespace: metallb-system
+      spec:
+        addresses:
+        - "{{ metallb_address_pool }}"
+
+- name: Assosiate L2Advertisement with IPAddressPool
+  kubernetes.core.k8s:
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    state: present
+    definition:
+      apiVersion: metallb.io/v1beta1
+      kind: L2Advertisement
+      metadata:
+        name: example
+        namespace: metallb-system
+      spec:
+        ipAddressPools:
+        - ingress-pool

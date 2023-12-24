@@ -1,0 +1,8 @@
+---
+minio_mode: standalone # standalone or distributed
+rootUser: minio # 3 char min
+rootPassword: minio1234 # 8 char min
+minio_ingress_host: minio.local
+minio_console_ingress_host: console.minio.local
+prometheus_stack_release_name: monitoring
+prometheus_stack_namespace: monitoring

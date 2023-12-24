@@ -1,0 +1,4 @@
+---
+cilium_chart_version: "1.14.4"
+cni_type: cilium
+cilium_operator_replica: "2"

@@ -1,0 +1,70 @@
+---
+# - name: Add stable chart repo
+#   kubernetes.core.helm_repository:
+#     name: cilium
+#     repo_url: "https://helm.cilium.io"
+#   # environment:
+#   #   ALL_PROXY: "{{ proxy_env.http_proxy }}"
+
+# - name: Update helm repo
+#   changed_when: true
+#   ansible.builtin.command: helm repo update
+#   # environment:
+#   #   ALL_PROXY: "{{ proxy_env.http_proxy }}"
+
+# - name: Deploy latest version of cillium chart inside kube-system namespace with values
+#   kubernetes.core.helm:
+#     kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+#     name: cilium
+#     chart_ref: cilium/cilium
+#     release_namespace: kube-system
+#     chart_version: "{{ cilium_chart_version }}"
+#     values:
+#       ipam:
+#         mode: kubernetes
+#       kubeProxyReplacement: strict
+#       autoDirectNodeRoutes: true
+#       ipv4NativeRoutingCIDR: "{{ pod_network_cidr }}"
+#       tunnel: disabled
+#       k8sServiceHost: "{{ kube_master_external_domain.split(',')[0] }}"
+#       k8sServicePort: "{{ lb_secure_port }}"
+#       operator:
+#         replicas: "{{ cilium_operator_replica }}"
+#         # nodeSelector:
+#         #   node-role.kubernetes.io: worker
+#       devices: "{{ iface }}"
+
+- name: Add cert-manager repo
+  kubernetes.core.helm_repository:
+    name: cert-manager
+    repo_url: "https://charts.jetstack.io"
+
+- name: Install cert-manager
+  kubernetes.core.helm:
+    update_repo_cache: true
+    release_name: cert-manager
+    release_namespace: cert-manager
+    name: cert-manager
+    namespace: cert-manager
+    create_namespace: true
+    # chart_version: "{{cert_manager_version}}"
+    chart_ref: stable/cert-manager
+    values:
+      prometheus:
+        enabled: false
+      installCRDs: true
+
+- name: 安装 metrics-server
+  kubernetes.core.helm:
+    # kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    name: metrics-server
+    chart_ref: metrics-server/metrics-server
+    release_namespace: kube-system
+    chart_version: "{% if (kube_version is version('1.21.0', '<')) %}3.9.0{% endif %}"
+  environment:
+    ALL_PROXY: "{{ proxy_env.http_proxy }}"
+    KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+
+- name: Wait for cillium pods become ready
+  changed_when: false
+  ansible.builtin.command: "kubectl wait --namespace=kube-system --for=condition=Ready --all pods --timeout=600s"

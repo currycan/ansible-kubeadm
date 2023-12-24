@@ -72,6 +72,6 @@
     dest: "{{ item.dest }}"
     mode: "0644"
   with_items:
-    - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/10-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/10-kubeadm.conf" }
-    - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-container-runtime.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf" }
-    - { src: "{{ inventory_dir }}/roles/03-prepare/templates/kubelet/00-cgroup.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf" }
+    - { src: "{{ inventory_dir }}/roles/04-init/templates/kubelet/10-kubeadm.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/10-kubeadm.conf" }
+    - { src: "{{ inventory_dir }}/roles/04-init/templates/kubelet/00-container-runtime.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-container-runtime.conf" }
+    - { src: "{{ inventory_dir }}/roles/04-init/templates/kubelet/00-cgroup.conf", dest: "{{ systemd_service_dir }}/kubelet.service.d/00-cgroup.conf" }

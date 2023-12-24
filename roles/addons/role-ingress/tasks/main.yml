@@ -1,0 +1,159 @@
+---
+- name: Add stable chart repo
+  kubernetes.core.helm_repository:
+    name: ingress-nginx
+    repo_url: "https://kubernetes.github.io/ingress-nginx"
+
+- name: Update helm repo
+  changed_when: false
+  ansible.builtin.command: helm repo update
+
+- name: Deploy ingress nginx chart inside ingress-nginx namespace with values when no Gateway nodes
+  kubernetes.core.helm:
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    name: ingress-nginx
+    chart_ref: ingress-nginx/ingress-nginx
+    release_namespace: ingress-nginx
+    create_namespace: yes
+    force: yes
+    values:
+      controller:
+        kind: Deployment
+        hostNetwork: true
+        podAnnotations:
+          fluentbit.io/parser: "{{ fluentbit_parser }}"
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+            additionalLabels:
+              release: "{{ prometheus_stack_release_name }}"
+          prometheusRule:
+            enabled: true
+            namespace: "{{ prometheus_stack_namespace }}"
+            additionalLabels:
+              release: "{{ prometheus_stack_release_name }}"
+              app: kube-prometheus-stack
+            rules:
+              # These are just examples rules, please adapt them to your needs
+              - alert: NGINXConfigFailed
+                expr: count(nginx_ingress_controller_config_last_reload_successful == 0) > 0
+                for: 1s
+                labels:
+                  severity: critical
+                annotations:
+                  description: bad ingress config - nginx config test failed
+                  summary: uninstall the latest ingress changes to allow config reloads to resume
+              - alert: NGINXCertificateExpiry
+                expr: (avg(nginx_ingress_controller_ssl_expire_time_seconds) by (host) - time()) < 604800
+                for: 1s
+                labels:
+                  severity: critical
+                annotations:
+                  description: ssl certificate(s) will expire in less then a week
+                  summary: renew expiring certificates to avoid downtime
+              - alert: NGINXTooMany500s
+                expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"5.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
+                for: 1m
+                labels:
+                  severity: warning
+                annotations:
+                  description: Too many 5XXs
+                  summary: More than 5% of all requests returned 5XX, this requires your attention
+              - alert: NGINXTooMany400s
+                expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"4.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
+                for: 1m
+                labels:
+                  severity: warning
+                annotations:
+                  description: Too many 4XXs
+                  summary: More than 5% of all requests returned 4XX, this requires your attention
+  when: groups['k8s_gateways'] | length == 0
+
+- name: Deploy ingress nginx chart inside ingress-nginx namespace with values when Gateway nodes exist
+  kubernetes.core.helm:
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    name: ingress-nginx
+    chart_ref: ingress-nginx/ingress-nginx
+    release_namespace: ingress-nginx
+    create_namespace: yes
+    force: yes
+    values:
+      controller:
+        kind: DaemonSet
+        podAnnotations:
+          fluentbit.io/parser: "{{ fluentbit_parser }}"
+        nodeSelector:
+          node-role.kubernetes.io: gw
+        tolerations:
+          - effect: NoSchedule
+            key: "{{ ingress_taint }}"
+            operator: "Exists"
+        admissionWebhooks:
+          patch:
+            tolerations:
+            - effect: NoSchedule
+              key: "{{ ingress_taint }}"
+              operator: "Exists"
+            nodeSelector:
+              node-role.kubernetes.io: gw
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+            additionalLabels:
+              release: "{{ prometheus_stack_release_name }}"
+          prometheusRule:
+            enabled: true
+            namespace: "{{ prometheus_stack_namespace }}"
+            additionalLabels:
+              release: "{{ prometheus_stack_release_name }}"
+              app: kube-prometheus-stack
+            rules:
+              # These are just examples rules, please adapt them to your needs
+              - alert: NGINXConfigFailed
+                expr: count(nginx_ingress_controller_config_last_reload_successful == 0) > 0
+                for: 1s
+                labels:
+                  severity: critical
+                annotations:
+                  description: bad ingress config - nginx config test failed
+                  summary: uninstall the latest ingress changes to allow config reloads to resume
+              - alert: NGINXCertificateExpiry
+                expr: (avg(nginx_ingress_controller_ssl_expire_time_seconds) by (host) - time()) < 604800
+                for: 1s
+                labels:
+                  severity: critical
+                annotations:
+                  description: ssl certificate(s) will expire in less then a week
+                  summary: renew expiring certificates to avoid downtime
+              - alert: NGINXTooMany500s
+                expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"5.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
+                for: 1m
+                labels:
+                  severity: warning
+                annotations:
+                  description: Too many 5XXs
+                  summary: More than 5% of all requests returned 5XX, this requires your attention
+              - alert: NGINXTooMany400s
+                expr: 100 * ( sum( nginx_ingress_controller_requests{status=~"4.+"} ) / sum(nginx_ingress_controller_requests) ) > 5
+                for: 1m
+                labels:
+                  severity: warning
+                annotations:
+                  description: Too many 4XXs
+                  summary: More than 5% of all requests returned 4XX, this requires your attention
+  when: groups['k8s_gateways'] | length > 0
+
+- name: Add NGINX ingress grafana dashboard
+  kubernetes.core.k8s:
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    state: present
+    definition: "{{ lookup('file', 'roles/role-ingress/files/ingress-dashboard-cm.yaml') | from_yaml }}"
+    namespace: "{{ prometheus_stack_namespace }}"
+    validate:
+      fail_on_error: yes
+
+- name: Wait for ingress pods become ready
+  changed_when: false
+  ansible.builtin.command: "kubectl wait --namespace=ingress-nginx --for=condition=Ready --all pods --timeout=600s"

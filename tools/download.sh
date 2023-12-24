@@ -122,6 +122,7 @@ function download_chrony_rpm (){
 
 function download_dependence_rpm (){
     log::info ">>>>>> 开始下载环境依赖 rpm 包"
+    yum install -y epel-release
     yum install -y --downloadonly --downloaddir=${DEPENDENCE_RPM_DIR} \
         conntrack \
         conntrack-tools \
@@ -162,6 +163,7 @@ function download_dependence_rpm (){
         audit \
         glib2-devel \
         irqbalance
+    rm -f ${DEPENDENCE_RPM_DIR}/libseccomp-devel-2.3.1-4.el7.x86_64.rpm
     log::info "环境依赖 rpm 包下载完成"
 }
 
@@ -354,10 +356,11 @@ function version(){
     HELM_VERSION=`curl -sSf https://github.com/helm/helm/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
     # autoscaler
     AUTOSCALER_VERSION=`curl -sSf https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/tags | grep "releases/tag/" | grep -v chart | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    # AUTOSCALER_VERSION=1.8.9
     # dns-node-cache
     DNS_NODE_CACHE_VERSION=`curl -sSf https://github.com/kubernetes/dns/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
     # kube-vip
-    KUBE_VIP_VERSION=`curl -sSf https://api.github.com/repos/kube-vip/kube-vip/releases | grep tag_name | head -n 1 | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*"`
+    KUBE_VIP_VERSION=`curl -sSf https://github.com/kube-vip/kube-vip/tags | grep "releases/tag/" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
     # kube-lvscare
     KUBE_LVSCARE_VERSION=`curl -sSf https://github.com/labring/sealos/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
 

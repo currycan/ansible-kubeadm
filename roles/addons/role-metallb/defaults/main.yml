@@ -1,0 +1,5 @@
+prometheus_stack_release_name: monitoring
+prometheus_stack_namespace: monitoring
+metallb_address_pool: "192.168.0.200-192.168.0.200"
+enable_metallb: true
+metallb_taint: node-role.kubernetes.io/gw

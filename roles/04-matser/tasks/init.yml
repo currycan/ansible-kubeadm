@@ -130,6 +130,15 @@
     retries: 8
     delay: 15
 
+- name: 配置 kubelet 自动轮换服务端证书配置和集群管理用户(如:admin/ops/dev)
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ kubernetes_etc_dir }}"
+    mode: 0644
+  with_items:
+  - csr
+  - user
+
 - name: 授权 kubelet 自动轮换服务端证书、集群管理用户
   changed_when: true
   ansible.builtin.shell: >

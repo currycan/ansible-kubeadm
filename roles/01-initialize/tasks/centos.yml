@@ -27,37 +27,18 @@
     regexp: '^obsoletes=1'
     line: obsoletes=0
 
-- name: 判断依赖组件是否安装
+- name: Debug
+  ansible.builtin.debug:
+    msg: "安装基础依赖, 可能需要一定时间..."
+  run_once: true
+
+- name: 离线安装基础依赖
+  changed_when: true
   ansible.builtin.shell: >-
-    set -o pipefail;
-    yum_installed_num=0;
-    for rpm in {socat,conntrack,ebtables,ipset};
-    do
-      [ `yum list installed | grep ${rpm}| wc -l` -ge 1 ] && yum_installed_num=`expr $yum_installed_num + 1`;
-    done;
-    echo $yum_installed_num
-  register: yum_installed_result
-  changed_when: False
+    yum install -y *.rpm || exit 0
   args:
-    warn: no
-
-- name: 安装基础依赖
-  when: 'yum_installed_result.stdout is defined and yum_installed_result.stdout != "4"'
-  block:
-  - name: Debug
-    ansible.builtin.debug:
-      msg: "安装基础依赖, 可能需要一定时间..."
-    run_once: true
-
-  - name: 离线安装基础依赖
-    ansible.builtin.shell: >-
-      rpm -Uvh --nodeps --force *.rpm
-    args:
-      warn: false
-      chdir: "{{ cache_dir }}/dependence"
-    register: dependence_rpm_install
-    failed_when: dependence_rpm_install.rc != 0 and "is already installed" not in dependence_rpm_install.stderr
-    changed_when: dependence_rpm_install.rc == 0
+    warn: false
+    chdir: "{{ cache_dir }}/dependence"
 
   # - name: yum 安装基础软件包
   #   ansible.builtin.package:

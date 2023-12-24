@@ -1,0 +1,4 @@
+prometheus_stack_release_name: monitoring
+prometheus_stack_namespace: monitoring
+grafana_ingress_host: grafana.local
+alertmanager_ingress_host: alertmanager.local

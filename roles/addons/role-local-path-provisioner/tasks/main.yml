@@ -1,0 +1,36 @@
+---
+- name: Add a repository
+  kubernetes.core.helm_repository:
+    name: local-path-provisioner
+    repo_url: https://ebrianne.github.io/helm-charts
+
+- name: Update helm repo
+  ansible.builtin.command: helm repo update
+
+- name: Deploy latest version of local-path-provisioner chart inside local-path-provisioner namespace
+  kubernetes.core.helm:
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    name: local-path-provisioner
+    chart_ref: local-path-provisioner/local-path-provisioner
+    release_namespace: local-path-provisioner
+    create_namespace: true
+    wait: true
+    atomic: true
+    values:
+      image:
+        repository: rancher/local-path-provisioner
+        tag: "{{ local_path_provisioner_image_version }}"
+        pullPolicy: IfNotPresent
+      storageClass:
+        create: true
+        ## Set StorageClass as the default StorageClass
+        ## Ignored if storageClass.create is false
+        defaultClass: true
+        ## Set a StorageClass name
+        ## Ignored if storageClass.create is false
+        name: local-path
+        ## ReclaimPolicy field of the class, which can be either Delete or Retain
+        reclaimPolicy: Delete
+
+- name: Wait for local-path-provisioner pods become ready
+  ansible.builtin.command: "kubectl wait --namespace=local-path-provisioner --for=condition=Ready --all pods --timeout=600s"

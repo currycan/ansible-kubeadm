@@ -14,10 +14,10 @@
   - 01-initialize
   - 01-preinstall
   - 02-container-runtime
-  - 03-image
-  - 03-prepare
-  - 04-etcd
+  - 02-images
+  - 03-etcd
+  - 04-init
   - 04-lb
   - 04-matser
   - 04-worker
-  - 04-windup
+  - 05-addons

@@ -117,7 +117,3 @@
 
     - name: 普通用户配置集群访问权限
       ansible.builtin.include_tasks: normal-user-admission.yml
-
-- name: 安装集群自定义组件
-  when: inventory_hostname == groups['kube_masters'] | difference(groups['delete_masters']) | unique | first
-  ansible.builtin.include_tasks: addons.yml

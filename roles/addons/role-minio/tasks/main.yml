@@ -1,0 +1,48 @@
+---
+- name: Add a repository
+  kubernetes.core.helm_repository:
+    name: minio
+    repo_url: https://charts.min.io/
+
+- name: Update helm repo
+  ansible.builtin.command: helm repo update
+
+- name: Deploy latest version of Minio chart inside Minio namespace
+  kubernetes.core.helm:
+    kubeconfig: "{{ ansible_env.HOME }}/.kube/config"
+    name: minio
+    chart_ref: minio/minio
+    release_namespace: minio
+    create_namespace: true
+    wait: true
+    atomic: true
+    values:
+      mode: "{{ minio_mode }}"
+      rootUser: "{{ rootUser }}"
+      rootPassword: "{{ rootPassword }}"
+      replicas: 1
+      resources:
+        requests:
+          memory: 1Gi
+      ingress:
+        enabled: true
+        ingressClassName: nginx
+        path: /
+        hosts:
+          - "{{ minio_ingress_host }}"
+      consoleIngress:
+        enabled: true
+        ingressClassName: nginx
+        path: /
+        hosts:
+          - "{{ minio_console_ingress_host }}"
+      metrics:
+        serviceMonitor:
+          enabled: true
+          public: true
+          additionalLabels:
+            release: "{{ prometheus_stack_release_name }}"
+          namespace: "{{ prometheus_stack_namespace }}"
+
+- name: Wait for minio pods become ready
+  ansible.builtin.command: "kubectl wait --namespace=minio --for=condition=Ready --all pods --timeout=600s"

@@ -1,0 +1,4 @@
+---
+kibana_ingress_host: kibana.local
+prometheus_stack_release_name: monitoring
+prometheus_stack_namespace: monitoring
