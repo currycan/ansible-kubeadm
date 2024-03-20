@@ -45,7 +45,7 @@ spec:
             - sh
             - -c
             - |
-              etcdctl --endpoints=https://127.0.0.1:2379 --cacert={{ etcd_pki_dir }}/ca.crt --cert={{ etcd_pki_dir }}/healthcheck-client.crt --key={{ etcd_pki_dir }}/healthcheck-client.key snapshot save /backup/etcd-snapshot-lateest.db
+              etcdctl --endpoints=https://127.0.0.1:2379 --cacert={{ etcd_pki_dir }}/ca.crt --cert={{ etcd_pki_dir }}/healthcheck-client.crt --key={{ etcd_pki_dir }}/healthcheck-client.key snapshot save /backup/etcd-snapshot-latest.db
             volumeMounts:
             - name: etcd-certs
               mountPath: /etc/kubernetes/pki/etcd
