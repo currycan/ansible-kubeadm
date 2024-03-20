@@ -15,6 +15,7 @@ feature_gates:
   # kubectl debug 1.16.0 新增特性 , 默认关闭
   # EphemeralContainers: true
   # TTLAfterFinished: true
+  # RotateKubeletClientCertificate: true
   RotateKubeletServerCertificate: true
   # # 1.20 中新增特性, 默认关闭, 1.21 版本中是默认启用
   # GracefulNodeShutdown: true
@@ -133,7 +134,6 @@ controller_extra_args:
   kube-api-qps: "100"
   # 可以调整至 100, 默认值为 30
   kube-api-burst: "100"
-  leader-elect-resource-lock: "endpoints"
   # logtostderr: "false"
   # 使用 --requestheader-username-headers 指定的, 允许在头部提供用户名的客户端证书通用名称列表。
   # 如果为空, 任何通过 --requestheader-client-ca-file 中 authorities 验证的客户端证书都是被允许的。
@@ -149,7 +149,6 @@ scheduler_extra_args:
   kube-api-qps: "100"
   # 可以调整至 100, 默认值为 30
   kube-api-burst: "100"
-  leader-elect-resource-lock: "endpoints"
   # logtostderr: "false"
   # 使用 --requestheader-username-headers 指定的, 允许在头部提供用户名的客户端证书通用名称列表。
   # 如果为空, 任何通过 --requestheader-client-ca-file 中 authorities 验证的客户端证书都是被允许的。

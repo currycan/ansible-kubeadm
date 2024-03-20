@@ -20,7 +20,9 @@
     "userland-proxy": false,
     "iptables": true,
     "live-restore": false,
+    {% if (docker_version is version('25.0.0', '<')) -%}
     "oom-score-adjust": -600,
+    {% endif -%}
     "cgroup-parent": "limit-docker.slice",
     {% if gpu_node is defined and gpu_node | bool -%}
     "default-runtime": "nvidia",

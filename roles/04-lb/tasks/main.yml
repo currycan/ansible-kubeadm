@@ -1,4 +1,18 @@
 ---
+- name: 单节点集群, 添加 kube-apiserver 域名到 hosts 文件中
+  when: (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length == 1
+  ansible.builtin.blockinfile:
+    path: "/etc/hosts"
+    block: |-
+      {% for domain in kube_master_external_domain.split(',') %}
+      {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }} {{ domain | trim }}
+      {% endfor %}
+    mode: 0644
+    state: present
+    create: true
+    backup: true
+    marker: "# Ansible kube-apiserver domain {mark}"
+
 - name: 获取当前 {{ lb_mode }} 服务运行状态, 确认 LB 服务是否正常运行
   when:
     - (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1
@@ -25,22 +39,10 @@
   register: lb_running
 
 - name: LB 安装
-  when: not lb_running.stdout | bool
+  when:
+    - (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length > 1
+    - not lb_running.stdout | bool
   block:
-    - name: 单节点集群, 添加 kube-apiserver 域名到 hosts 文件中
-      when: (groups['kube_masters'] | difference(groups['delete_masters'])) | unique | length == 1
-      ansible.builtin.blockinfile:
-        path: "/etc/hosts"
-        block: |-
-          {% for domain in kube_master_external_domain.split(',') %}
-          {{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }} {{ domain | trim }}
-          {% endfor %}
-        mode: 0644
-        state: present
-        create: true
-        backup: true
-        marker: "# Ansible kube-apiserver domain {mark}"
-
     - name: kube-lvscare/slb/kube-vip 高可用方案, 添加 kube-apiserver 域名到 hosts 文件中
       when: lb_mode == "kube-lvscare" or lb_mode == "slb" or lb_mode == "kube-vip"
       ansible.builtin.blockinfile:

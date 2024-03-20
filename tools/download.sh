@@ -219,9 +219,9 @@ function download_cri_dockerd_binary (){
         if [ ! -d ${BINARY_DIR}/cri-dockerd ];then
             cd /tmp
             curl -fSLO https://github.com/Mirantis/cri-dockerd/releases/download/v${CRI_DOCKERD_VERSION}/cri-dockerd-${CRI_DOCKERD_VERSION}.amd64.tgz
+            mkdir -p ${BINARY_DIR}/docker
             tar zxf cri-dockerd-${CRI_DOCKERD_VERSION}.amd64.tgz -C ${BINARY_DIR}
             curl -fSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz
-            mkdir -p ${BINARY_DIR}/docker
             tar zxf docker-${DOCKER_VERSION}.tgz -C ${BINARY_DIR}
         fi
     fi
@@ -355,7 +355,7 @@ function version(){
     # helm
     HELM_VERSION=`curl -sSf https://github.com/helm/helm/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
     # autoscaler
-    AUTOSCALER_VERSION=`curl -sSf https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/tags | grep "releases/tag/" | grep -v chart | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`
+    AUTOSCALER_VERSION=`curl -sSf https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/tags | grep "releases/tag/" | grep -v chart | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | uniq | sed -n '3p'`
     # AUTOSCALER_VERSION=1.8.9
     # dns-node-cache
     DNS_NODE_CACHE_VERSION=`curl -sSf https://github.com/kubernetes/dns/tags | grep "releases/tag/" | grep -v "rc" | grep -v "alpha" | grep -v "beta" | grep -oP "[0-9]\d*\.[0-9]\d*\.[0-9]\d*" | head -n 1`

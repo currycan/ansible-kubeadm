@@ -115,5 +115,19 @@
     #     backup: true
     #     marker: "# Ansible kube-apiserver domain {mark}"
 
+    # 基于安全性考虑，CSR approving controllers 不会自动 approve kubelet server 证书签名请求，需要手动 approve。
+    - name: 手动 approve csr
+      changed_when: true
+      ansible.builtin.shell: >
+        set -o pipefail;
+        [ `kubectl get csr | grep 'Pending' | wc -l` -ne 0 ] && \
+        kubectl get csr | grep Pending | awk '{print $1}' | xargs -L 1 kubectl certificate approve|| exit 0
+      environment:
+        KUBECONFIG: "{{ kubernetes_etc_dir }}/admin.conf"
+      args:
+        executable: /bin/bash
+      run_once: true
+      delegate_to: "{{ groups['kube_masters'] | difference(groups['delete_masters']) | unique | first }}"
+
     - name: 普通用户配置集群访问权限
       ansible.builtin.include_tasks: normal-user-admission.yml

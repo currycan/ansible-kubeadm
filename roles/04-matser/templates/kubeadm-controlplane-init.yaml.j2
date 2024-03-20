@@ -185,6 +185,11 @@ controllerManager:
     bind-address: 127.0.0.1
     feature-gates: "{%- if feature_gates != None -%}{% for k,v in feature_gates.items() %}{{ k }}={{ v | lower }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}"
     profiling: "false"
+{% if (kube_version is version('1.19.0', '>=')) %}
+    cluster-signing-duration: "{{ cert_info_expiry }}"
+{% else %}
+    experimental-cluster-signing-duration: "{{ cert_info_expiry }}"
+{% endif %}
 {% if controller_extra_args|length > 0 %}
 {% for key in controller_extra_args %}
     {{ key }}: "{{ controller_extra_args[key] }}"
