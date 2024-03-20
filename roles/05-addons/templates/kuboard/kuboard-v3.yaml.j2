@@ -68,6 +68,7 @@ metadata:
   namespace: kuboard
 data:
   # 关于如下参数的解释,请参考文档 https://kuboard.cn/install/v3/install-built-in.html
+  # 防火墙要开 kuboard 和 agent 端口, 默认: 38000 30081
   # [common]
 {% if groups['kube_masters'] | difference(groups['delete_masters']) | unique | length > 1 %}
   KUBOARD_ENDPOINT: 'http://{{ lb_apiserver_ip }}:30080'
