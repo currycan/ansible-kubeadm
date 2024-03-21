@@ -111,7 +111,7 @@ apiserver_extra_args:
   runtime-config=api/all: "true"
   service-account-issuer: "https://kubernetes.default.svc.{{ cluster_domain_name }}"
   service-account-signing-key-file: "{{ k8s_pki_dir }}/sa.key"
-  service-node-port-range: 30000-32768
+  service-node-port-range: 30000-32767
   v: "3"
 
 controller_extra_args:
