@@ -21,6 +21,15 @@
   - { src: "endpoint/data-plane-ep.yaml", dest: "{{ addons_dir }}/data-plane-ep.yaml" }
   - { src: "calico/values.yaml", dest: "{{ kubernetes_etc_dir }}/helm-values/calico.yaml" }
 
+- name: 渲染 kubelet-serving-cert-approver 配置文件
+  when: kube_version is version('1.19.0', '>=')
+  ansible.builtin.template:
+    src: "{{ item.src }}.j2"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  with_items:
+  - { src: "kubelet-serving-cert-approver/ha-install.yaml", dest: "{{ addons_dir }}/kubelet-serving-cert-approver.yaml" }
+
 - name: 配置 coredns
   ansible.builtin.include_tasks: coredns.yml
 
